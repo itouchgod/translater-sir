@@ -2,6 +2,7 @@ import { MeetingStatus } from "@prisma/client";
 import { apiSuccess } from "@/lib/api-response";
 import { withApiHandler } from "@/lib/api-handler";
 import { requirePermission } from "@/lib/auth-helpers";
+import { invalidateDashboardStats } from "@/lib/dashboard";
 import { db } from "@/lib/db";
 import { NotFoundError } from "@/lib/errors";
 import { publishRealtimeMessage } from "@/lib/realtime";
@@ -52,6 +53,7 @@ export const POST = withApiHandler(async function POST(_request: Request, contex
 
   await publishRealtimeMessage(meeting.id, message);
   await redis.setex(RedisKeys.meetingStatus(meeting.id), RedisTTL.MEETING_STATUS, "LIVE");
+  await invalidateDashboardStats(meeting.organizationId);
 
   return apiSuccess(updated);
 });

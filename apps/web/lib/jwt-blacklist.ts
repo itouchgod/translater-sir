@@ -26,3 +26,28 @@ export async function addToBlacklist(jti: string, expiresAt: Date | number): Pro
 export async function isBlacklisted(jti: string): Promise<boolean> {
   return (await redis.get(RedisKeys.jwtBlacklist(jti))) !== null;
 }
+
+export async function invalidateUserTokens(userId: string): Promise<void> {
+  await redis.setex(
+    RedisKeys.userJwtInvalidatedBefore(userId),
+    RedisTTL.JWT_BLACKLIST,
+    String(Math.floor(Date.now() / 1000)),
+  );
+}
+
+export async function isUserTokenInvalidated(
+  userId: string,
+  issuedAt: number | undefined,
+): Promise<boolean> {
+  if (!issuedAt) {
+    return false;
+  }
+
+  const invalidatedBefore = await redis.get(RedisKeys.userJwtInvalidatedBefore(userId));
+
+  if (!invalidatedBefore) {
+    return false;
+  }
+
+  return issuedAt <= Number(invalidatedBefore);
+}

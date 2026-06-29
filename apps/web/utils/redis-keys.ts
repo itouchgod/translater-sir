@@ -5,6 +5,8 @@ function normalizeSegment(value: string) {
 export const RedisKeys = {
   session: (id: string) => `session:${normalizeSegment(id)}`,
   jwtBlacklist: (jti: string) => `jwt:blacklist:${normalizeSegment(jti)}`,
+  userJwtInvalidatedBefore: (userId: string) =>
+    `jwt:user-invalidated-before:${normalizeSegment(userId)}`,
   verification: (token: string) => `verification:${normalizeSegment(token)}`,
   invitation: (token: string) => `invitation:${normalizeSegment(token)}`,
   resetPassword: (token: string) => `reset-password:${normalizeSegment(token)}`,
@@ -18,6 +20,7 @@ export const RedisKeys = {
   ttsCache: (hash: string) => `tts:cache:${normalizeSegment(hash)}`,
   aiContext: (meetingId: string) => `ai:context:${normalizeSegment(meetingId)}`,
   downloadToken: (token: string) => `download:token:${normalizeSegment(token)}`,
+  dashboardStats: (orgId: string) => `dashboard:stats:${normalizeSegment(orgId)}`,
   glossary: (orgId: string, src: string, tgt: string) =>
     `glossary:${normalizeSegment(orgId)}:${normalizeSegment(src)}:${normalizeSegment(tgt)}`,
 } as const;

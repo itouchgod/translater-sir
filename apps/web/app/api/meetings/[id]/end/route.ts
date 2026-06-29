@@ -3,6 +3,7 @@ import { endMeetingPostProcess } from "@/app/actions/meeting-postprocess";
 import { apiSuccess } from "@/lib/api-response";
 import { withApiHandler } from "@/lib/api-handler";
 import { requirePermission } from "@/lib/auth-helpers";
+import { invalidateDashboardStats } from "@/lib/dashboard";
 import { db } from "@/lib/db";
 import { NotFoundError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
@@ -51,6 +52,7 @@ export const POST = withApiHandler(async function POST(_request: Request, contex
 
   await publishRealtimeMessage(meeting.id, message);
   await redis.setex(RedisKeys.meetingStatus(meeting.id), RedisTTL.MEETING_STATUS, "PROCESSING");
+  await invalidateDashboardStats(meeting.organizationId);
 
   void endMeetingPostProcess(meeting.id).catch((error: unknown) => {
     logger.error({ error, meetingId: meeting.id }, "Meeting postprocess failed");

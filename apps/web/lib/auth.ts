@@ -4,6 +4,7 @@ import Google from "next-auth/providers/google";
 import { UserRole } from "@prisma/client";
 import { AuthPrismaAdapter } from "@/lib/auth-adapter";
 import { db } from "@/lib/db";
+import { isUserTokenInvalidated } from "@/lib/jwt-blacklist";
 import { LoginSchema } from "@/lib/validations/auth";
 import { verifyPassword } from "@/utils/password";
 
@@ -147,6 +148,13 @@ const nextAuthResult: NextAuthResult = NextAuth({
         return token;
       }
 
+      if (!user && (await isUserTokenInvalidated(userId, token.iat))) {
+        token.invalidated = true;
+        token.userId = "";
+        token.organizationId = null;
+        return token;
+      }
+
       if (trigger === "update") {
         const requestedOrganizationId = getRequestedOrganizationId(session);
 
@@ -197,6 +205,12 @@ const nextAuthResult: NextAuthResult = NextAuth({
     },
     async session({ session, token }) {
       if (session.user) {
+        if (token.invalidated) {
+          session.user.id = "";
+          session.user.organizationId = null;
+          return session;
+        }
+
         session.user.id = token.userId;
         session.user.role = token.role;
         session.user.organizationId = token.organizationId;

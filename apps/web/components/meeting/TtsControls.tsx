@@ -9,6 +9,8 @@ import { cn } from "@/lib/utils";
 
 type TtsControlsProps = {
   player?: UseTtsPlayerReturn;
+  enabled?: boolean;
+  onEnabledChange?: (enabled: boolean) => void;
   className?: string;
   previewText?: string;
   previewLanguage?: string;
@@ -30,15 +32,30 @@ function PlaybackState({ isPlaying }: { isPlaying: boolean }) {
 
 export function TtsControls({
   player: externalPlayer,
+  enabled,
+  onEnabledChange,
   className,
   previewText,
   previewLanguage = "zh",
 }: TtsControlsProps) {
   const internalPlayer = useTtsPlayer();
   const player = externalPlayer ?? internalPlayer;
-  const [isEnabled, setIsEnabled] = useState(true);
+  const [internalEnabled, setInternalEnabled] = useState(true);
+  const isEnabled = enabled ?? internalEnabled;
 
   const displayText = player.currentText ?? previewText ?? "暂无播放内容";
+
+  function setEnabled(next: boolean) {
+    if (enabled === undefined) {
+      setInternalEnabled(next);
+    }
+
+    onEnabledChange?.(next);
+
+    if (!next) {
+      player.stop();
+    }
+  }
 
   return (
     <section className={cn("space-y-4 rounded-md border bg-white p-4", className)}>
@@ -52,13 +69,7 @@ export function TtsControls({
           variant={isEnabled ? "default" : "outline"}
           size="sm"
           onClick={() => {
-            setIsEnabled((previous) => {
-              const next = !previous;
-              if (!next) {
-                player.stop();
-              }
-              return next;
-            });
+            setEnabled(!isEnabled);
           }}
         >
           {isEnabled ? "开启" : "关闭"}

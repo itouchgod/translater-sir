@@ -1,10 +1,15 @@
 import {
+  AbortMultipartUploadCommand,
+  CompleteMultipartUploadCommand,
+  CreateMultipartUploadCommand,
   DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
   PutObjectCommand,
+  UploadPartCommand,
   S3Client,
   type PutObjectCommandInput,
+  type CompletedPart,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
@@ -179,6 +184,96 @@ export async function getSignedUploadUrl(
         ContentType: params.contentType,
       }),
       { expiresIn: params.expiresIn ?? 300 },
+    ),
+  );
+}
+
+export async function createMultipartUpload(params: {
+  key: string;
+  contentType: string;
+  metadata?: Record<string, string>;
+}) {
+  const config = getR2Config();
+  const client = createR2Client(config);
+  const result = await withR2Retry(() =>
+    client.send(
+      new CreateMultipartUploadCommand({
+        Bucket: config.bucketName,
+        Key: params.key,
+        ContentType: params.contentType,
+        Metadata: params.metadata,
+      }),
+    ),
+  );
+
+  if (!result.UploadId) {
+    throw new Error("R2 multipart uploadId missing");
+  }
+
+  return {
+    uploadId: result.UploadId,
+    key: params.key,
+  };
+}
+
+export async function getSignedUploadPartUrl(params: {
+  key: string;
+  uploadId: string;
+  partNumber: number;
+  expiresIn?: number;
+}) {
+  const config = getR2Config();
+  const client = createR2Client(config);
+
+  return withR2Retry(() =>
+    getSignedUrl(
+      client,
+      new UploadPartCommand({
+        Bucket: config.bucketName,
+        Key: params.key,
+        UploadId: params.uploadId,
+        PartNumber: params.partNumber,
+      }),
+      { expiresIn: params.expiresIn ?? 300 },
+    ),
+  );
+}
+
+export async function completeMultipartUpload(params: {
+  key: string;
+  uploadId: string;
+  parts: CompletedPart[];
+}) {
+  const config = getR2Config();
+  const client = createR2Client(config);
+
+  return withR2Retry(() =>
+    client.send(
+      new CompleteMultipartUploadCommand({
+        Bucket: config.bucketName,
+        Key: params.key,
+        UploadId: params.uploadId,
+        MultipartUpload: {
+          Parts: params.parts
+            .slice()
+            .sort((a, b) => (a.PartNumber ?? 0) - (b.PartNumber ?? 0)),
+        },
+      }),
+    ),
+  );
+}
+
+export async function abortMultipartUpload(params: { key: string; uploadId: string }) {
+  const config = getR2Config();
+  const client = createR2Client(config);
+
+  await withR2Retry(() =>
+    client.send(
+      new AbortMultipartUploadCommand({
+        Bucket: config.bucketName,
+        Key: params.key,
+        UploadId: params.uploadId,
+      }),
     ),
   );
 }

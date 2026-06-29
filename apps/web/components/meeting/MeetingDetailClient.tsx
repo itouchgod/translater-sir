@@ -10,8 +10,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { FileList } from "@/components/meeting/FileList";
 import { MeetingForm } from "@/components/meeting/MeetingForm";
 import { MeetingStatus, formatMeetingDuration } from "@/components/meeting/MeetingStatus";
+import { SummaryPanel } from "@/components/meeting/SummaryPanel";
 import { SubtitleHistory } from "@/components/subtitle/SubtitleHistory";
 import { useMeeting, type MeetingDetail } from "@/hooks/useMeeting";
 
@@ -111,28 +113,21 @@ export function MeetingDetailClient({ meetingId, initialMeeting }: MeetingDetail
 
       <Card>
         <CardHeader>
+          <CardTitle>会议纪要</CardTitle>
+          <CardDescription>生成结构化纪要并导出为 PDF、DOCX 或 TXT。</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <SummaryPanel meetingId={data.id} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>文件</CardTitle>
           <CardDescription>{data._count.files} 个会议文件。</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-2">
-            {data.files.map((file) => (
-              <div key={file.id} className="flex items-center justify-between rounded-md border p-3">
-                <div>
-                  <p className="text-sm font-medium">{file.name}</p>
-                  <p className="text-xs text-slate-500">
-                    {file.type} · {(file.sizeBytes / 1024 / 1024).toFixed(2)} MB
-                  </p>
-                </div>
-                <Button asChild variant="outline" size="sm">
-                  <a href={`/api/download/${file.id}`}>下载</a>
-                </Button>
-              </div>
-            ))}
-            {data.files.length === 0 ? (
-              <p className="text-sm text-muted-foreground">暂无文件</p>
-            ) : null}
-          </div>
+          <FileList meetingId={data.id} initialFiles={data.files} />
         </CardContent>
       </Card>
     </div>

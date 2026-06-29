@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { apiSuccess } from "@/lib/api-response";
 import { withApiHandler } from "@/lib/api-handler";
 import { requireAuth, requireOrgMember, requirePermission } from "@/lib/auth-helpers";
+import { invalidateDashboardStats } from "@/lib/dashboard";
 import { db } from "@/lib/db";
 import { ValidationError } from "@/lib/errors";
 import { CreateMeetingSchema, MeetingListQuerySchema } from "@/lib/validations/meeting";
@@ -108,6 +109,8 @@ export const POST = withApiHandler(async function POST(request: Request) {
       targetLanguage: parsed.data.targetLanguage,
     },
   });
+
+  await invalidateDashboardStats(organizationId);
 
   return apiSuccess(meeting, { status: 201 });
 });

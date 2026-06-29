@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { UserRole } from "@prisma/client";
 import { OrgSwitcher } from "@/components/org/OrgSwitcher";
 import { Button } from "@/components/ui/button";
 import { auth } from "@/lib/auth";
@@ -37,7 +38,16 @@ export default async function DashboardLayout({
           />
           <nav className="flex flex-wrap gap-2">
             <Button asChild variant="ghost" size="sm">
+              <Link href="/dashboard">Dashboard</Link>
+            </Button>
+            <Button asChild variant="ghost" size="sm">
               <Link href="/meetings">会议</Link>
+            </Button>
+            <Button asChild variant="ghost" size="sm">
+              <Link href="/history">历史</Link>
+            </Button>
+            <Button asChild variant="ghost" size="sm">
+              <Link href="/dictionary">词典</Link>
             </Button>
             <Button asChild variant="ghost" size="sm">
               <Link href="/settings/profile">个人资料</Link>
@@ -51,6 +61,11 @@ export default async function DashboardLayout({
             <Button asChild variant="ghost" size="sm">
               <Link href="/settings/security">安全</Link>
             </Button>
+            {user.role === UserRole.ADMIN || user.role === UserRole.SUPER_ADMIN ? (
+              <Button asChild variant="ghost" size="sm">
+                <Link href="/admin">管理</Link>
+              </Button>
+            ) : null}
           </nav>
         </header>
         {children}

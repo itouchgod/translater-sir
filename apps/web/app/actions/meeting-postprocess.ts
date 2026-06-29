@@ -2,6 +2,7 @@
 
 import type { MeetingStatus } from "@prisma/client";
 import { db } from "@/lib/db";
+import { invalidateDashboardStats } from "@/lib/dashboard";
 import { logger } from "@/lib/logger";
 import { publishRealtimeMessage } from "@/lib/realtime";
 import { redis } from "@/lib/redis";
@@ -26,6 +27,7 @@ export async function endMeetingPostProcess(meetingId: string) {
     select: {
       id: true,
       status: true,
+      organizationId: true,
     },
   });
 
@@ -120,4 +122,5 @@ export async function endMeetingPostProcess(meetingId: string) {
     },
   });
   await redis.setex(RedisKeys.meetingStatus(meeting.id), RedisTTL.MEETING_STATUS, completedStatus);
+  await invalidateDashboardStats(meeting.organizationId);
 }
