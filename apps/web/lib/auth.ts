@@ -1,0 +1,214 @@
+import NextAuth, { type NextAuthResult, type User as AuthUser } from "next-auth";
+import Credentials from "next-auth/providers/credentials";
+import Google from "next-auth/providers/google";
+import { UserRole } from "@prisma/client";
+import { AuthPrismaAdapter } from "@/lib/auth-adapter";
+import { db } from "@/lib/db";
+import { LoginSchema } from "@/lib/validations/auth";
+import { verifyPassword } from "@/utils/password";
+
+const SESSION_MAX_AGE_SECONDS = 15 * 60;
+
+type CredentialsUser = AuthUser & {
+  role: UserRole;
+  organizationId: string | null;
+};
+
+function isCredentialsUser(user: AuthUser): user is CredentialsUser {
+  return Boolean(
+    user.role &&
+      Object.values(UserRole).includes(user.role) &&
+      "organizationId" in user,
+  );
+}
+
+async function getUserSessionClaims(userId: string, preferredOrganizationId?: string | null) {
+  const user = await db.user.findFirst({
+    where: {
+      id: userId,
+      deletedAt: null,
+    },
+    select: {
+      id: true,
+      role: true,
+      memberships: {
+        orderBy: { joinedAt: "asc" },
+        select: {
+          organizationId: true,
+        },
+      },
+    },
+  });
+
+  if (!user) {
+    return null;
+  }
+
+  return {
+    userId: user.id,
+    role: user.role,
+    organizationId:
+      user.memberships.find(
+        (membership) => membership.organizationId === preferredOrganizationId,
+      )?.organizationId ??
+      user.memberships[0]?.organizationId ??
+      null,
+  };
+}
+
+function getRequestedOrganizationId(session: unknown) {
+  if (!session || typeof session !== "object" || !("user" in session)) {
+    return null;
+  }
+
+  const user = session.user;
+
+  if (!user || typeof user !== "object" || !("organizationId" in user)) {
+    return null;
+  }
+
+  const organizationId = user.organizationId;
+  return typeof organizationId === "string" && organizationId.length > 0 ? organizationId : null;
+}
+
+const nextAuthResult: NextAuthResult = NextAuth({
+  adapter: AuthPrismaAdapter(db),
+  session: {
+    strategy: "jwt",
+    maxAge: SESSION_MAX_AGE_SECONDS,
+    updateAge: 0,
+  },
+  jwt: {
+    maxAge: SESSION_MAX_AGE_SECONDS,
+  },
+  pages: {
+    signIn: "/login",
+    error: "/login",
+  },
+  providers: [
+    Credentials({
+      credentials: {
+        email: { label: "邮箱", type: "email" },
+        password: { label: "密码", type: "password" },
+      },
+      async authorize(credentials) {
+        const parsed = LoginSchema.safeParse(credentials);
+
+        if (!parsed.success) {
+          return null;
+        }
+
+        const user = await db.user.findFirst({
+          where: {
+            email: parsed.data.email,
+            deletedAt: null,
+          },
+          include: {
+            memberships: {
+              orderBy: { joinedAt: "asc" },
+              take: 1,
+              select: {
+                organizationId: true,
+              },
+            },
+          },
+        });
+
+        if (!user?.passwordHash) {
+          return null;
+        }
+
+        const passwordMatches = await verifyPassword(parsed.data.password, user.passwordHash);
+
+        if (!passwordMatches) {
+          return null;
+        }
+
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          image: user.avatarUrl,
+          role: user.role,
+          organizationId: user.memberships[0]?.organizationId ?? null,
+        } satisfies CredentialsUser;
+      },
+    }),
+    Google({
+      clientId: process.env.GOOGLE_CLIENT_ID ?? "",
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
+    }),
+  ],
+  callbacks: {
+    async jwt({ token, user, trigger, session }) {
+      const userId = user?.id ?? token.userId ?? token.sub;
+
+      if (!userId) {
+        return token;
+      }
+
+      if (trigger === "update") {
+        const requestedOrganizationId = getRequestedOrganizationId(session);
+
+        if (requestedOrganizationId) {
+          const membership = await db.member.findUnique({
+            where: {
+              userId_organizationId: {
+                userId,
+                organizationId: requestedOrganizationId,
+              },
+            },
+            select: {
+              organizationId: true,
+              user: {
+                select: {
+                  deletedAt: true,
+                },
+              },
+            },
+          });
+
+          if (membership && !membership.user.deletedAt) {
+            token.organizationId = membership.organizationId;
+          }
+        }
+
+        return token;
+      }
+
+      const claims =
+        user && isCredentialsUser(user)
+          ? {
+              userId,
+              role: user.role,
+              organizationId: user.organizationId,
+            }
+          : await getUserSessionClaims(userId, token.organizationId);
+
+      if (!claims) {
+        return token;
+      }
+
+      token.userId = claims.userId;
+      token.role = claims.role;
+      token.organizationId = claims.organizationId;
+
+      return token;
+    },
+    async session({ session, token }) {
+      if (session.user) {
+        session.user.id = token.userId;
+        session.user.role = token.role;
+        session.user.organizationId = token.organizationId;
+      }
+
+      return session;
+    },
+  },
+});
+
+export const handlers: NextAuthResult["handlers"] = nextAuthResult.handlers;
+export const auth: NextAuthResult["auth"] = nextAuthResult.auth;
+export const signIn: NextAuthResult["signIn"] = nextAuthResult.signIn;
+export const signOut: NextAuthResult["signOut"] = nextAuthResult.signOut;
+export const update: NextAuthResult["unstable_update"] = nextAuthResult.unstable_update;

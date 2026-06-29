@@ -1,0 +1,2 @@
+ALTER TABLE "AiLog"
+  ADD COLUMN IF NOT EXISTS "metadata" JSONB;

@@ -1,0 +1,17 @@
+{
+  "name": "@repo/types",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "lint": "eslint src --config ../../eslint.package.config.mjs --max-warnings=0",
+    "type-check": "tsc --noEmit",
+    "test": "echo \"No tests yet\""
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

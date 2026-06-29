@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "composite": false,
+    "declaration": true,
+    "declarationMap": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "noEmit": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "target": "ES2022",
+    "paths": {
+      "@/*": ["apps/web/*"],
+      "@repo/types": ["packages/types/src/index.ts"],
+      "@repo/utils": ["packages/utils/src/index.ts"]
+    }
+  },
+  "exclude": ["node_modules"]
+}

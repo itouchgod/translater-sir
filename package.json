@@ -1,0 +1,37 @@
+{
+  "name": "speech-interpreter",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.7.0",
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "type-check": "turbo type-check",
+    "test": "turbo test",
+    "db:check": "ts-node --compiler-options {\"module\":\"CommonJS\"} scripts/db-check.ts",
+    "prisma:generate": "prisma generate --schema prisma/schema.prisma",
+    "prisma:validate": "prisma validate --schema prisma/schema.prisma",
+    "prisma:seed": "prisma db seed"
+  },
+  "prisma": {
+    "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.3.5",
+    "@types/node": "^20.19.43",
+    "@typescript-eslint/eslint-plugin": "^8.49.0",
+    "@typescript-eslint/parser": "^8.49.0",
+    "eslint": "^9.39.4",
+    "eslint-config-next": "15.5.19",
+    "prettier": "^3.7.4",
+    "prisma": "6.19.3",
+    "ts-node": "^10.9.2",
+    "turbo": "^2.6.3",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@prisma/client": "6.19.3",
+    "bcryptjs": "^3.0.3"
+  }
+}
