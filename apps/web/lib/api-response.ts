@@ -15,7 +15,7 @@ export function apiSuccess<TData>(data: TData, init?: ResponseInit) {
   );
 }
 
-export function apiError(code: string, message: string, status = 400) {
+export function apiError(code: string, message: string, status = 400, headers?: HeadersInit) {
   return NextResponse.json(
     {
       data: null,
@@ -24,6 +24,6 @@ export function apiError(code: string, message: string, status = 400) {
         message,
       } satisfies ApiError,
     },
-    { status },
+    { status, headers },
   );
 }

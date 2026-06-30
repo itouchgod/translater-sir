@@ -3,6 +3,7 @@
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
+import { invalidateUserMeCache } from "@/lib/cache-invalidation";
 import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { UpdateProfileSchema, type UpdateProfileInput } from "@/lib/validations/user";
@@ -36,6 +37,7 @@ export async function updateProfileAction(input: unknown): Promise<ProfileAction
       },
     });
 
+    await invalidateUserMeCache(session.user.id);
     revalidatePath("/settings/profile");
     return { success: true, error: null };
   } catch (error: unknown) {
@@ -66,6 +68,7 @@ export async function deleteAccountAction(): Promise<ProfileActionState> {
       },
     });
 
+    await invalidateUserMeCache(session.user.id);
     return { success: true, error: null };
   } catch (error: unknown) {
     logger.error({ error, userId: session.user.id }, "Account delete action failed");

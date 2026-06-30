@@ -32,3 +32,9 @@ export class ValidationError extends AppError {
     super("VALIDATION_ERROR", message, 422);
   }
 }
+
+export class QuotaExceededError extends AppError {
+  constructor(message = "当前计划配额已用完，请升级订阅") {
+    super("QUOTA_EXCEEDED", message, 429);
+  }
+}

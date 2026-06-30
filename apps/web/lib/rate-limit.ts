@@ -1,40 +1,18 @@
-import { randomUUID } from "node:crypto";
 import { redis } from "@/lib/redis";
 import { RedisKeys } from "@/utils/redis-keys";
-import { RedisTTL } from "@/utils/redis-ttl";
-
-const LOGIN_WINDOW_SECONDS = RedisTTL.RATE_LIMIT_LOGIN;
-const LOGIN_LIMIT = 5;
+import { rateLimit } from "@/utils/rate-limit";
 
 export function getLoginRateLimitKey(email: string) {
   return RedisKeys.rateLimit("auth:login", email.toLowerCase());
 }
 
 export async function isLoginRateLimited(email: string) {
-  const key = getLoginRateLimitKey(email);
-  const now = Date.now();
-  const windowStart = now - LOGIN_WINDOW_SECONDS * 1000;
-
-  const pipeline = redis.pipeline();
-  pipeline.zremrangebyscore(key, 0, windowStart);
-  pipeline.zcard(key);
-  pipeline.pexpire(key, LOGIN_WINDOW_SECONDS * 1000);
-
-  const results = await pipeline.exec();
-  const countResult = results?.[1]?.[1];
-  const count = typeof countResult === "number" ? countResult : 0;
-
-  return count >= LOGIN_LIMIT;
+  const result = await rateLimit(email.toLowerCase(), "auth:login");
+  return !result.success;
 }
 
 export async function recordFailedLogin(email: string) {
-  const key = getLoginRateLimitKey(email);
-  const now = Date.now();
-
-  const pipeline = redis.pipeline();
-  pipeline.zadd(key, now, `${now}:${randomUUID()}`);
-  pipeline.pexpire(key, LOGIN_WINDOW_SECONDS * 1000);
-  await pipeline.exec();
+  await rateLimit(email.toLowerCase(), "auth:login");
 }
 
 export async function clearFailedLogins(email: string) {

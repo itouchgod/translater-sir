@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { UpdatePasswordSchema } from "@/lib/validations/user";
+import { auditLog } from "@/utils/audit";
 import { hashPassword, verifyPassword } from "@/utils/password";
 
 export async function POST(request: Request) {
@@ -52,6 +53,13 @@ export async function POST(request: Request) {
       data: {
         passwordHash: await hashPassword(parsed.data.password),
       },
+    });
+    void auditLog({
+      userId: session.user.id,
+      action: "user.password.change",
+      resource: "User",
+      resourceId: session.user.id,
+      request,
     });
 
     return apiSuccess({ updated: true });

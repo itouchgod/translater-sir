@@ -1,11 +1,16 @@
 import { Prisma } from "@prisma/client";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { apiSuccess } from "@/lib/api-response";
 import { withApiHandler } from "@/lib/api-handler";
 import { requireAuth, requireOrgMember, requirePermission } from "@/lib/auth-helpers";
+import { CacheTags } from "@/lib/cache-tags";
 import { invalidateDashboardStats } from "@/lib/dashboard";
 import { db } from "@/lib/db";
-import { ValidationError } from "@/lib/errors";
+import { QuotaExceededError, ValidationError } from "@/lib/errors";
+import { checkMeetingQuota } from "@/lib/quota";
+import { withRateLimit } from "@/lib/with-rate-limit";
 import { CreateMeetingSchema, MeetingListQuerySchema } from "@/lib/validations/meeting";
+import { auditLog } from "@/utils/audit";
 
 export const runtime = "nodejs";
 
@@ -84,7 +89,8 @@ export const GET = withApiHandler(async function GET(request: Request) {
   });
 });
 
-export const POST = withApiHandler(async function POST(request: Request) {
+export const POST = withRateLimit("api:meeting:create")(
+  withApiHandler(async function POST(request: Request) {
   const session = await requireAuth();
   const organizationId = session.user.organizationId;
 
@@ -93,6 +99,11 @@ export const POST = withApiHandler(async function POST(request: Request) {
   }
 
   await requirePermission(organizationId, "meeting:create");
+
+  const quota = await checkMeetingQuota(organizationId);
+  if (!quota.allowed) {
+    throw new QuotaExceededError(quota.reason);
+  }
 
   const parsed = CreateMeetingSchema.safeParse(await request.json());
 
@@ -111,6 +122,18 @@ export const POST = withApiHandler(async function POST(request: Request) {
   });
 
   await invalidateDashboardStats(organizationId);
+  revalidateTag(CacheTags.meetings(organizationId));
+  revalidatePath("/meetings");
+  revalidatePath("/dashboard");
+  void auditLog({
+    userId: session.user.id,
+    action: "meeting.create",
+    resource: "Meeting",
+    resourceId: meeting.id,
+    metadata: { organizationId, meetingId: meeting.id },
+    request,
+  });
 
   return apiSuccess(meeting, { status: 201 });
-});
+  }),
+);

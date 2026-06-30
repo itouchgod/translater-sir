@@ -31,6 +31,12 @@ declare global {
       OPENAI_API_KEY?: string;
       STRIPE_SECRET_KEY?: string;
       STRIPE_WEBHOOK_SECRET?: string;
+      STRIPE_PRICE_ID_STARTER?: string;
+      STRIPE_PRICE_ID_PROFESSIONAL?: string;
+      STRIPE_PRICE_ID_PRO?: string;
+      STRIPE_PRICE_ID_ENTERPRISE?: string;
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?: string;
+      NEXT_PUBLIC_APP_URL?: string;
       LOG_LEVEL?: string;
     }
   }

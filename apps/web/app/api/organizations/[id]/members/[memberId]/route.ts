@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import { countOrganizationOwners } from "@/lib/organizations";
 import { UpdateMemberRoleSchema } from "@/lib/validations/organization";
+import { auditLog } from "@/utils/audit";
 import { invalidateOrgPermissionCache } from "@/utils/permissions";
 
 type RouteContext = {
@@ -90,7 +91,7 @@ export const PATCH = withApiHandler(async function PATCH(request: Request, conte
   }
 });
 
-export const DELETE = withApiHandler(async function DELETE(_request: Request, context: RouteContext) {
+export const DELETE = withApiHandler(async function DELETE(request: Request, context: RouteContext) {
   const { id, memberId } = await context.params;
   const access = await requirePermission(id, "member:manage");
 
@@ -116,6 +117,19 @@ export const DELETE = withApiHandler(async function DELETE(_request: Request, co
   });
 
   invalidateOrgPermissionCache(id);
+  void auditLog({
+    userId: access.session.user.id,
+    action: "org.member.remove",
+    resource: "Member",
+    resourceId: memberId,
+    metadata: {
+      organizationId: id,
+      targetUserId: targetMember.user.id,
+      targetEmail: targetMember.user.email,
+      role: targetMember.role,
+    },
+    request,
+  });
 
   return apiSuccess({ removed: true });
 });

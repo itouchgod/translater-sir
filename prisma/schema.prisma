@@ -94,6 +94,7 @@ model Organization {
   subscriptions Subscription[]
   apiKeys       ApiKey[]
   webhooks      Webhook[]
+  webhookDeliveries WebhookDelivery[]
 
   @@index([plan])
   @@index([createdAt])
@@ -300,6 +301,7 @@ model ApiKey {
   name           String
   keyHash        String    @unique
   keyPrefix      String
+  scopes         String[]  @default([])
   lastUsedAt     DateTime?
   expiresAt      DateTime?
   createdAt      DateTime  @default(now())
@@ -323,8 +325,28 @@ model Webhook {
   updatedAt      DateTime @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  deliveries   WebhookDelivery[]
 
   @@index([organizationId, isActive])
+}
+
+model WebhookDelivery {
+  id          String   @id @default(cuid())
+  webhookId   String
+  organizationId String
+  targetUrl   String
+  event       String
+  statusCode  Int?
+  latencyMs   Int
+  error       String?
+  createdAt   DateTime @default(now())
+
+  webhook      Webhook      @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([webhookId, createdAt])
+  @@index([organizationId, createdAt])
+  @@index([createdAt])
 }
 
 model AuditLog {

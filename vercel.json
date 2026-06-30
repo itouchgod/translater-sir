@@ -1,0 +1,7 @@
+{
+  "framework": "nextjs",
+  "buildCommand": "pnpm turbo build",
+  "installCommand": "pnpm install",
+  "regions": ["sin1"],
+  "crons": []
+}

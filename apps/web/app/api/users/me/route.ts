@@ -2,14 +2,24 @@ import { Prisma } from "@prisma/client";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { withApiHandler } from "@/lib/api-handler";
 import { requireAuth } from "@/lib/auth-helpers";
+import { invalidateUserMeCache } from "@/lib/cache-invalidation";
 import { requireCurrentUser } from "@/lib/current-user";
 import { db } from "@/lib/db";
 import { NotFoundError, UnauthorizedError, ValidationError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 import { UpdateProfileSchema } from "@/lib/validations/user";
+import { auditLog } from "@/utils/audit";
+import { withRedisCache } from "@/utils/redis-helpers";
+import { RedisKeys } from "@/utils/redis-keys";
+import { RedisTTL } from "@/utils/redis-ttl";
 
 export const GET = withApiHandler(async function GET() {
-  const user = await requireCurrentUser();
+  const session = await requireAuth();
+  const user = await withRedisCache(
+    RedisKeys.userMe(session.user.id),
+    RedisTTL.USER_ME,
+    requireCurrentUser,
+  );
 
   if (!user) {
     throw new UnauthorizedError();
@@ -46,6 +56,8 @@ export const PATCH = withApiHandler(async function PATCH(request: Request) {
       },
     });
 
+    await invalidateUserMeCache(session.user.id);
+
     return apiSuccess(user);
   } catch (error: unknown) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
@@ -61,7 +73,7 @@ export const PATCH = withApiHandler(async function PATCH(request: Request) {
   }
 });
 
-export const DELETE = withApiHandler(async function DELETE() {
+export const DELETE = withApiHandler(async function DELETE(request: Request) {
   const session = await requireAuth();
 
   try {
@@ -77,6 +89,14 @@ export const DELETE = withApiHandler(async function DELETE() {
         id: true,
         deletedAt: true,
       },
+    });
+    await invalidateUserMeCache(session.user.id);
+    void auditLog({
+      userId: session.user.id,
+      action: "user.account.delete",
+      resource: "User",
+      resourceId: session.user.id,
+      request,
     });
 
     return apiSuccess(user);

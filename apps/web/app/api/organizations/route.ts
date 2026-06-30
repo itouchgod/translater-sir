@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { ValidationError } from "@/lib/errors";
 import { createOrganizationSlug } from "@/lib/organizations";
 import { CreateOrganizationSchema } from "@/lib/validations/organization";
+import { auditLog } from "@/utils/audit";
 
 export const POST = withApiHandler(async function POST(request: Request) {
   const session = await requireAuth();
@@ -43,6 +44,14 @@ export const POST = withApiHandler(async function POST(request: Request) {
       plan: true,
       createdAt: true,
     },
+  });
+  void auditLog({
+    userId: session.user.id,
+    action: "org.create",
+    resource: "Organization",
+    resourceId: organization.id,
+    metadata: { organizationId: organization.id, name: organization.name },
+    request,
   });
 
   return apiSuccess(organization, { status: 201 });

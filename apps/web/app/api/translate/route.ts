@@ -5,6 +5,7 @@ import { requireAuth, requireOrgMember } from "@/lib/auth-helpers";
 import { db } from "@/lib/db";
 import { AppError, NotFoundError, ValidationError } from "@/lib/errors";
 import { translateText } from "@/lib/translation";
+import { withRateLimit } from "@/lib/with-rate-limit";
 import { isSupportedLanguagePair } from "@/utils/languages";
 
 export const runtime = "nodejs";
@@ -16,7 +17,8 @@ const TranslateSchema = z.object({
   meetingId: z.string().trim().min(1),
 });
 
-export const POST = withApiHandler(async function POST(request: Request) {
+export const POST = withRateLimit("api:translate")(
+  withApiHandler(async function POST(request: Request) {
   if (!process.env.OPENAI_API_KEY) {
     throw new AppError("TRANSLATION_UNAVAILABLE", "翻译服务暂不可用，请稍后再试", 503);
   }
@@ -57,4 +59,5 @@ export const POST = withApiHandler(async function POST(request: Request) {
     cached: result.cached,
     latencyMs: result.latencyMs,
   });
-});
+  }),
+);

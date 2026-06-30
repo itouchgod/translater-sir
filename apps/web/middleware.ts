@@ -1,6 +1,62 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 
+const LOCALHOST_ORIGIN_PATTERN = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/;
+
+function getAllowedAppOrigin() {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXTAUTH_URL;
+
+  if (!appUrl) {
+    return null;
+  }
+
+  try {
+    return new URL(appUrl).origin;
+  } catch {
+    return null;
+  }
+}
+
+function isAllowedCorsOrigin(origin: string | null) {
+  if (!origin) {
+    return false;
+  }
+
+  const appOrigin = getAllowedAppOrigin();
+  if (appOrigin && origin === appOrigin) {
+    return true;
+  }
+
+  return process.env.NODE_ENV !== "production" && LOCALHOST_ORIGIN_PATTERN.test(origin);
+}
+
+function applyCorsHeaders(response: NextResponse, request: NextRequest) {
+  const origin = request.headers.get("origin");
+
+  if (!isAllowedCorsOrigin(origin)) {
+    return response;
+  }
+
+  response.headers.set("Access-Control-Allow-Origin", origin!);
+  response.headers.set("Access-Control-Allow-Credentials", "true");
+  response.headers.set("Access-Control-Allow-Methods", "GET,POST,PATCH,DELETE,OPTIONS");
+  response.headers.set(
+    "Access-Control-Allow-Headers",
+    "Authorization,Content-Type,Stripe-Signature,X-Requested-With",
+  );
+  response.headers.append("Vary", "Origin");
+
+  return response;
+}
+
+function handleApiCors(request: NextRequest) {
+  if (request.method === "OPTIONS") {
+    return applyCorsHeaders(new NextResponse(null, { status: 204 }), request);
+  }
+
+  return applyCorsHeaders(NextResponse.next(), request);
+}
+
 function forbiddenResponse() {
   return new NextResponse(
     `<!doctype html>
@@ -31,6 +87,10 @@ function forbiddenResponse() {
 }
 
 export async function middleware(request: NextRequest) {
+  if (request.nextUrl.pathname.startsWith("/api")) {
+    return handleApiCors(request);
+  }
+
   const token = await getToken({
     req: request,
     secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
@@ -53,5 +113,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/admin/:path*"],
+  matcher: ["/dashboard/:path*", "/admin/:path*", "/api/:path*"],
 };

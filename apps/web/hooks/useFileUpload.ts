@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import type { UploadPurpose } from "@/utils/upload-validation";
+import { readMagicBytes, type UploadPurpose } from "@/utils/upload-validation";
 
 type UploadOptions = {
   key?: string;
@@ -87,6 +87,7 @@ export function useFileUpload() {
             fileName: file.name,
             contentType: file.type,
             fileSize: file.size,
+            magicBytes: await readMagicBytes(file),
             purpose,
             meetingId: options.meetingId,
           }),

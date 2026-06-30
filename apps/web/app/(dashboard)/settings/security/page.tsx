@@ -29,7 +29,7 @@ export default async function SecuritySettingsPage() {
   const loginLogs = await db.auditLog.findMany({
     where: {
       userId: session.user.id,
-      action: "auth.login",
+      action: "user.login.success",
     },
     orderBy: {
       createdAt: "desc",

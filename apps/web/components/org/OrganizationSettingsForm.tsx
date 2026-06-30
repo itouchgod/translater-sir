@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
+import { readMagicBytes } from "@/utils/upload-validation";
 
 const MAX_LOGO_SIZE_BYTES = 5 * 1024 * 1024;
 const allowedLogoTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -94,6 +95,7 @@ async function requestPresignedLogo(organizationId: string, file: File) {
       fileName: file.name,
       contentType: file.type,
       sizeBytes: file.size,
+      magicBytes: await readMagicBytes(file),
     }),
   });
   const payload = (await response.json()) as {

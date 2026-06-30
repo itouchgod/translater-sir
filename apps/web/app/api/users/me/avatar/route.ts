@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { apiSuccess } from "@/lib/api-response";
 import { withApiHandler } from "@/lib/api-handler";
 import { requireAuth } from "@/lib/auth-helpers";
+import { invalidateUserMeCache } from "@/lib/cache-invalidation";
 import { db } from "@/lib/db";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import { getR2Key, getR2PublicUrl, headR2Object } from "@/lib/r2";
@@ -46,6 +47,8 @@ export const POST = withApiHandler(async function POST(request: Request) {
         updatedAt: true,
       },
     });
+
+    await invalidateUserMeCache(session.user.id);
 
     return apiSuccess(user);
   } catch (error: unknown) {

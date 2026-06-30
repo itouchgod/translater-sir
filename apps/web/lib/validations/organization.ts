@@ -38,6 +38,7 @@ export const OrganizationLogoUploadSchema = z.object({
   contentType: z.enum(organizationLogoContentTypes, {
     message: "Logo 仅支持 jpeg、png、webp 格式",
   }),
+  magicBytes: z.string().trim().min(6, "缺少文件签名信息").max(24, "文件签名信息无效"),
   sizeBytes: z
     .number()
     .int()

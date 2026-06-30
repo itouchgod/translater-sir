@@ -6,7 +6,9 @@ import { logger } from "@/lib/logger";
 import { sendVerificationEmail } from "@/lib/mail";
 import { createOpaqueToken, hashToken } from "@/lib/token";
 import { RegisterSchema, type RegisterInput } from "@/lib/validations/auth";
+import { auditLog } from "@/utils/audit";
 import { hashPassword } from "@/utils/password";
+import { rateLimit } from "@/utils/rate-limit";
 
 type RegisterActionState = {
   success: boolean;
@@ -35,6 +37,11 @@ export async function registerAction(input: unknown): Promise<RegisterActionStat
   const { email, name, password } = parsed.data;
 
   try {
+    const registerLimit = await rateLimit(email.toLowerCase(), "auth:register");
+    if (!registerLimit.success) {
+      return { success: false, error: "注册请求过于频繁，请稍后再试" };
+    }
+
     const existingUser = await db.user.findFirst({
       where: {
         email,
@@ -52,7 +59,7 @@ export async function registerAction(input: unknown): Promise<RegisterActionStat
     const verificationTokenHash = hashToken(verificationToken);
     const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-    await db.$transaction(async (tx) => {
+    const created = await db.$transaction(async (tx) => {
       const user = await tx.user.create({
         data: {
           email,
@@ -91,6 +98,23 @@ export async function registerAction(input: unknown): Promise<RegisterActionStat
           expires: verificationExpires,
         },
       });
+
+      return { userId: user.id, organizationId: organization.id };
+    });
+
+    void auditLog({
+      userId: created.userId,
+      action: "user.register",
+      resource: "User",
+      resourceId: created.userId,
+      metadata: { email, organizationId: created.organizationId },
+    });
+    void auditLog({
+      userId: created.userId,
+      action: "org.create",
+      resource: "Organization",
+      resourceId: created.organizationId,
+      metadata: { organizationId: created.organizationId, name: `${name} 的组织` },
     });
 
     await sendVerificationEmail({

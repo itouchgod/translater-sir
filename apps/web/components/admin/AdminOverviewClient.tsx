@@ -76,6 +76,9 @@ export function AdminOverviewClient() {
           <Button asChild variant="outline">
             <Link href="/admin/logs">AI 日志</Link>
           </Button>
+          <Button asChild variant="outline">
+            <Link href="/admin/audit-logs">审计日志</Link>
+          </Button>
         </div>
       </div>
 

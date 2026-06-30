@@ -21,6 +21,9 @@ export const RedisKeys = {
   aiContext: (meetingId: string) => `ai:context:${normalizeSegment(meetingId)}`,
   downloadToken: (token: string) => `download:token:${normalizeSegment(token)}`,
   dashboardStats: (orgId: string) => `dashboard:stats:${normalizeSegment(orgId)}`,
+  userMe: (userId: string) => `user:me:${normalizeSegment(userId)}`,
+  organization: (orgId: string) => `organization:${normalizeSegment(orgId)}`,
+  billingCurrent: (orgId: string) => `billing:current:${normalizeSegment(orgId)}`,
   glossary: (orgId: string, src: string, tgt: string) =>
     `glossary:${normalizeSegment(orgId)}:${normalizeSegment(src)}:${normalizeSegment(tgt)}`,
 } as const;

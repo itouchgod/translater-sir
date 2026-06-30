@@ -9,6 +9,7 @@ import {
   storeInvitationToken,
 } from "@/lib/organizations";
 import { InviteMemberSchema } from "@/lib/validations/organization";
+import { auditLog } from "@/utils/audit";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -53,6 +54,18 @@ export const POST = withApiHandler(async function POST(request: Request, context
     organizationName: access.organization.name,
     token,
     invitedByName: access.session.user.name,
+  });
+  void auditLog({
+    userId: access.session.user.id,
+    action: "org.member.invite",
+    resource: "Organization",
+    resourceId: id,
+    metadata: {
+      organizationId: id,
+      email: parsed.data.email,
+      role: parsed.data.role,
+    },
+    request,
   });
 
   return apiSuccess({

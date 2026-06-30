@@ -9,6 +9,8 @@ import { NotFoundError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 import { publishRealtimeMessage } from "@/lib/realtime";
 import { redis } from "@/lib/redis";
+import { triggerWebhooks } from "@/lib/webhook-events";
+import { auditLog } from "@/utils/audit";
 import { RedisKeys } from "@/utils/redis-keys";
 import { RedisTTL } from "@/utils/redis-ttl";
 
@@ -18,7 +20,7 @@ type RouteContext = {
   params: Promise<{ id: string }>;
 };
 
-export const POST = withApiHandler(async function POST(_request: Request, context: RouteContext) {
+export const POST = withApiHandler(async function POST(request: Request, context: RouteContext) {
   const { id } = await context.params;
   const meeting = await db.meeting.findUnique({
     where: { id },
@@ -32,7 +34,7 @@ export const POST = withApiHandler(async function POST(_request: Request, contex
     throw new NotFoundError("会议不存在");
   }
 
-  await requirePermission(meeting.organizationId, "meeting:create");
+  const access = await requirePermission(meeting.organizationId, "meeting:create");
 
   const updated = await db.meeting.update({
     where: { id: meeting.id },
@@ -53,6 +55,19 @@ export const POST = withApiHandler(async function POST(_request: Request, contex
   await publishRealtimeMessage(meeting.id, message);
   await redis.setex(RedisKeys.meetingStatus(meeting.id), RedisTTL.MEETING_STATUS, "PROCESSING");
   await invalidateDashboardStats(meeting.organizationId);
+  await triggerWebhooks(meeting.organizationId, "meeting.ended", {
+    meetingId: meeting.id,
+    status: MeetingStatus.PROCESSING,
+    endedAt: updated.endedAt?.toISOString() ?? null,
+  });
+  void auditLog({
+    userId: access.session.user.id,
+    action: "meeting.end",
+    resource: "Meeting",
+    resourceId: meeting.id,
+    metadata: { organizationId: meeting.organizationId, meetingId: meeting.id },
+    request,
+  });
 
   void endMeetingPostProcess(meeting.id).catch((error: unknown) => {
     logger.error({ error, meetingId: meeting.id }, "Meeting postprocess failed");

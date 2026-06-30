@@ -6,6 +6,7 @@ import { requireAuth, requireOrgMember } from "@/lib/auth-helpers";
 import { db } from "@/lib/db";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import { getR2Key, getR2PublicUrl, getSignedUploadUrl } from "@/lib/r2";
+import { withRateLimit } from "@/lib/with-rate-limit";
 import {
   getAllowedTypesForPurpose,
   getMaxSizeForPurpose,
@@ -32,6 +33,7 @@ const PresignedUploadSchema = z.object({
   contentType: z.string().trim().min(1),
   fileSize: z.number().int().positive().optional(),
   sizeBytes: z.number().int().positive().optional(),
+  magicBytes: z.string().trim().min(6).max(24).optional(),
   purpose: z.enum(["avatar", "audio", "attachment"]).default("avatar"),
   meetingId: z.string().trim().min(1).optional(),
 });
@@ -86,7 +88,8 @@ async function createUploadKey(params: {
     : getR2Key("meetingAttachment", params.organizationId, params.meetingId, fileName);
 }
 
-export const POST = withApiHandler(async function POST(request: Request) {
+export const POST = withRateLimit("api:upload")(
+  withApiHandler(async function POST(request: Request) {
   const session = await requireAuth();
   const body = await request.json();
   const parsed = PresignedUploadSchema.safeParse(body);
@@ -102,7 +105,7 @@ export const POST = withApiHandler(async function POST(request: Request) {
   }
 
   const validation = validateUpload(
-    { type: parsed.data.contentType, size },
+    { type: parsed.data.contentType, size, magicBytes: parsed.data.magicBytes },
     getAllowedTypesForPurpose(parsed.data.purpose),
     getMaxSizeForPurpose(parsed.data.purpose),
   );
@@ -148,4 +151,5 @@ export const POST = withApiHandler(async function POST(request: Request) {
     publicUrl: getR2PublicUrl(key),
     expiresIn: 300,
   });
-});
+  }),
+);

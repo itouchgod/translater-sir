@@ -1,7 +1,9 @@
 import { Prisma } from "@prisma/client";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { apiSuccess } from "@/lib/api-response";
 import { withApiHandler } from "@/lib/api-handler";
 import { requireAuth, requireOrgMember, requirePermission } from "@/lib/auth-helpers";
+import { CacheTags } from "@/lib/cache-tags";
 import { db } from "@/lib/db";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { deleteFromR2, getR2KeyFromUrl } from "@/lib/r2";
@@ -122,6 +124,7 @@ export const DELETE = withApiHandler(async function DELETE(request: Request, con
         resourceId: meeting.id,
         metadata: {
           organizationId: meeting.organizationId,
+          meetingId: meeting.id,
           fileIds: files.map((file) => file.id),
         },
         ip: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
@@ -129,6 +132,10 @@ export const DELETE = withApiHandler(async function DELETE(request: Request, con
       },
     }),
   ]);
+
+  revalidateTag(CacheTags.meetings(meeting.organizationId));
+  revalidatePath("/meetings");
+  revalidatePath("/dashboard");
 
   return apiSuccess({ deleted: true });
 });

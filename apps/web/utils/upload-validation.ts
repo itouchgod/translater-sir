@@ -11,8 +11,44 @@ export type UploadValidationResult =
   | { valid: true; error: null }
   | { valid: false; error: string };
 
+const IMAGE_MAGIC_BYTES = {
+  "image/jpeg": ["ffd8ff"],
+  "image/png": ["89504e47"],
+  "image/webp": ["52494646"],
+} as const;
+
+type ImageContentType = keyof typeof IMAGE_MAGIC_BYTES;
+
+function normalizeMagicBytes(value: string | undefined) {
+  return value?.trim().toLowerCase().replace(/[^a-f0-9]/g, "") ?? "";
+}
+
+export async function readMagicBytes(file: Blob, byteLength = 12) {
+  const buffer = await file.slice(0, byteLength).arrayBuffer();
+  return Array.from(new Uint8Array(buffer), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+export function validateMagicBytes(contentType: string, magicBytes: string | undefined): UploadValidationResult {
+  if (!(contentType in IMAGE_MAGIC_BYTES)) {
+    return { valid: true, error: null };
+  }
+
+  const normalized = normalizeMagicBytes(magicBytes);
+  const signatures = IMAGE_MAGIC_BYTES[contentType as ImageContentType];
+
+  if (!normalized) {
+    return { valid: false, error: "缺少文件签名信息" };
+  }
+
+  if (!signatures.some((signature) => normalized.startsWith(signature))) {
+    return { valid: false, error: "文件内容与类型不匹配" };
+  }
+
+  return { valid: true, error: null };
+}
+
 export function validateUpload(
-  file: { type: string; size: number },
+  file: { type: string; size: number; magicBytes?: string },
   allowedTypes: readonly string[],
   maxSize: number,
 ): UploadValidationResult {
@@ -26,6 +62,11 @@ export function validateUpload(
 
   if (file.size > maxSize) {
     return { valid: false, error: "文件过大" };
+  }
+
+  const magicBytesValidation = validateMagicBytes(file.type, file.magicBytes);
+  if (!magicBytesValidation.valid) {
+    return magicBytesValidation;
   }
 
   return { valid: true, error: null };

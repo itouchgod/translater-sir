@@ -10,6 +10,7 @@ import {
   parseStoredSummary,
 } from "@/lib/summary/utils";
 import { MeetingSummarySchema, type MeetingSummary } from "@/lib/summary/types";
+import { triggerWebhooks } from "@/lib/webhook-events";
 
 const SUMMARY_MODEL = "gpt-4o";
 const SUMMARY_LOG_TYPE = "SUMMARY" satisfies AiType;
@@ -199,6 +200,11 @@ export async function generateMeetingSummary(params: {
           segmentCount: source.segments.length,
           forced: params.force ?? false,
         },
+      });
+      await triggerWebhooks(source.meeting.organizationId, "meeting.summary.ready", {
+        meetingId: source.meeting.id,
+        title: source.meeting.title,
+        generatedAt: new Date().toISOString(),
       });
 
       return summary;

@@ -4,6 +4,7 @@ import { requirePermission } from "@/lib/auth-helpers";
 import { ValidationError } from "@/lib/errors";
 import { getR2Key, getR2PublicUrl, getSignedUploadUrl } from "@/lib/r2";
 import { OrganizationLogoUploadSchema } from "@/lib/validations/organization";
+import { validateMagicBytes } from "@/utils/upload-validation";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -30,6 +31,11 @@ export const POST = withApiHandler(async function POST(request: Request, context
 
   if (!parsed.success) {
     throw new ValidationError(parsed.error.issues[0]?.message ?? "Logo 文件无效");
+  }
+
+  const magicBytesValidation = validateMagicBytes(parsed.data.contentType, parsed.data.magicBytes);
+  if (!magicBytesValidation.valid) {
+    throw new ValidationError(magicBytesValidation.error);
   }
 
   const key = getR2Key(

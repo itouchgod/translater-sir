@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { update } from "@/lib/auth";
+import { invalidateOrganizationCache } from "@/lib/cache-invalidation";
 import { db } from "@/lib/db";
 import { getR2Key, getR2PublicUrl } from "@/lib/r2";
 import { canManageMembers, getOrganizationAccess } from "@/lib/organizations";
@@ -54,6 +55,7 @@ export async function updateOrganizationAction(
     },
   });
 
+  await invalidateOrganizationCache(organizationId);
   revalidatePath("/settings/organization");
   revalidatePath("/", "layout");
 

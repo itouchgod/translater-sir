@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { MAX_AVATAR_SIZE_BYTES } from "@/lib/validations/user";
+import { readMagicBytes } from "@/utils/upload-validation";
 
 const allowedAvatarTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 
@@ -51,6 +52,7 @@ async function requestPresignedUpload(file: File) {
       fileName: file.name,
       contentType: file.type,
       sizeBytes: file.size,
+      magicBytes: await readMagicBytes(file),
     }),
   });
   const payload = (await response.json()) as {

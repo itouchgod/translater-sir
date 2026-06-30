@@ -5,6 +5,7 @@ import { getToken } from "next-auth/jwt";
 import { signOut } from "@/lib/auth";
 import { addToBlacklist } from "@/lib/jwt-blacklist";
 import { logger } from "@/lib/logger";
+import { auditLog } from "@/utils/audit";
 
 type LogoutActionState = {
   success: boolean;
@@ -22,6 +23,16 @@ export async function logoutAction(): Promise<LogoutActionState> {
     if (token?.jti) {
       const expiresAt = typeof token.exp === "number" ? token.exp : Date.now() + 15 * 60 * 1000;
       await addToBlacklist(token.jti, expiresAt);
+    }
+
+    if (token?.userId) {
+      void auditLog({
+        userId: token.userId,
+        action: "user.logout",
+        resource: "User",
+        resourceId: token.userId,
+        metadata: { organizationId: token.organizationId ?? null },
+      });
     }
 
     await signOut({ redirect: false });

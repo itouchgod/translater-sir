@@ -5,6 +5,7 @@ import { OrgSwitcher } from "@/components/org/OrgSwitcher";
 import { Button } from "@/components/ui/button";
 import { auth } from "@/lib/auth";
 import { requireCurrentUser } from "@/lib/current-user";
+import { can } from "@/utils/permissions";
 
 export default async function DashboardLayout({
   children,
@@ -17,11 +18,14 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  const activeOrganizationId =
-    user.memberships.find((membership) => membership.organization.id === session.user.organizationId)
-      ?.organization.id ??
-    user.memberships[0]?.organization.id ??
+  const activeMembership =
+    user.memberships.find((membership) => membership.organization.id === session.user.organizationId) ??
+    user.memberships[0] ??
     null;
+  const activeOrganizationId = activeMembership?.organization.id ?? null;
+  const canViewBilling = activeMembership ? can(activeMembership.role, "billing:view") : false;
+  const canManageApiKeys = activeMembership ? can(activeMembership.role, "apikey:manage") : false;
+  const canManageWebhooks = activeMembership ? can(activeMembership.role, "webhook:manage") : false;
   const organizations = user.memberships.map((membership) => ({
     id: membership.organization.id,
     name: membership.organization.name,
@@ -49,6 +53,11 @@ export default async function DashboardLayout({
             <Button asChild variant="ghost" size="sm">
               <Link href="/dictionary">词典</Link>
             </Button>
+            {canViewBilling ? (
+              <Button asChild variant="ghost" size="sm">
+                <Link href="/billing">计费</Link>
+              </Button>
+            ) : null}
             <Button asChild variant="ghost" size="sm">
               <Link href="/settings/profile">个人资料</Link>
             </Button>
@@ -61,6 +70,16 @@ export default async function DashboardLayout({
             <Button asChild variant="ghost" size="sm">
               <Link href="/settings/security">安全</Link>
             </Button>
+            {canManageApiKeys ? (
+              <Button asChild variant="ghost" size="sm">
+                <Link href="/settings/api-keys">API Key</Link>
+              </Button>
+            ) : null}
+            {canManageWebhooks ? (
+              <Button asChild variant="ghost" size="sm">
+                <Link href="/settings/webhooks">Webhooks</Link>
+              </Button>
+            ) : null}
             {user.role === UserRole.ADMIN || user.role === UserRole.SUPER_ADMIN ? (
               <Button asChild variant="ghost" size="sm">
                 <Link href="/admin">管理</Link>

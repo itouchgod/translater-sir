@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { getR2Key, uploadToR2 } from "@/lib/r2";
 import { MeetingSummarySchema, type MeetingSummary, type SummaryExportFormat } from "@/lib/summary/types";
+import { triggerWebhooks } from "@/lib/webhook-events";
 
 type MeetingForSummary = Pick<
   Meeting,
@@ -225,6 +226,13 @@ export async function saveSummaryExport(params: {
       data: { summaryUrl: url },
     });
   }
+
+  await triggerWebhooks(params.organizationId, "export.ready", {
+    meetingId: params.meetingId,
+    fileId: meetingFile.id,
+    format: params.format,
+    url,
+  });
 
   return {
     url,

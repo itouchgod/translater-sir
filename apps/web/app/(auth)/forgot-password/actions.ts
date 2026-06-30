@@ -8,6 +8,7 @@ import {
   ForgotPasswordSchema,
   type ForgotPasswordInput,
 } from "@/lib/validations/auth";
+import { rateLimit } from "@/utils/rate-limit";
 
 type ForgotPasswordActionState = {
   success: boolean;
@@ -26,6 +27,11 @@ export async function forgotPasswordAction(
   const { email } = parsed.data;
 
   try {
+    const forgotLimit = await rateLimit(email.toLowerCase(), "auth:forgot");
+    if (!forgotLimit.success) {
+      return { success: false, error: "重置请求过于频繁，请稍后再试" };
+    }
+
     const user = await db.user.findUnique({
       where: { email },
       select: { id: true },

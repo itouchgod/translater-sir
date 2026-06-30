@@ -1,0 +1,106 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  CI: true
+  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/speech_interpreter?schema=public
+  REDIS_URL: redis://localhost:6379
+  AUTH_SECRET: ci-auth-secret-minimum-32-characters
+  NEXTAUTH_SECRET: ci-auth-secret-minimum-32-characters
+  NEXTAUTH_URL: http://localhost:3000
+  NEXT_PUBLIC_APP_URL: http://localhost:3000
+  R2_ACCOUNT_ID: ci-r2-account
+  R2_ACCESS_KEY_ID: ci-r2-access-key
+  R2_SECRET_ACCESS_KEY: ci-r2-secret-key
+  R2_BUCKET_NAME: ci-r2-bucket
+  R2_PUBLIC_URL: https://r2.example.com
+  OPENAI_API_KEY: ci-openai-key
+  DEEPGRAM_API_KEY: ci-deepgram-key
+  STRIPE_SECRET_KEY: sk_test_ci
+  STRIPE_WEBHOOK_SECRET: whsec_ci
+  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: pk_test_ci
+  EMAIL_FROM: "Speech Interpreter <no-reply@example.com>"
+  SMTP_HOST: smtp.example.com
+  SMTP_PORT: 587
+  SMTP_USER: ci
+  SMTP_PASSWORD: ci
+  SMTP_SECURE: "false"
+
+jobs:
+  ci:
+    name: Lint, Typecheck, Test, Build
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: speech_interpreter
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d speech_interpreter"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.7.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Get pnpm store directory
+        id: pnpm-store
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Type check
+        run: pnpm type-check
+
+      - name: Test
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build

@@ -4,9 +4,11 @@ import { AuthError } from "next-auth";
 import { signIn } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
-import { clearFailedLogins, isLoginRateLimited, recordFailedLogin } from "@/lib/rate-limit";
+import { clearFailedLogins } from "@/lib/rate-limit";
 import { LoginSchema, type LoginInput } from "@/lib/validations/auth";
 import { verifyPassword } from "@/utils/password";
+import { rateLimit } from "@/utils/rate-limit";
+import { auditLog } from "@/utils/audit";
 
 export type AuthActionState = {
   success: boolean;
@@ -27,7 +29,13 @@ export async function loginAction(input: unknown): Promise<AuthActionState> {
   const { email, password } = parsed.data;
 
   try {
-    if (await isLoginRateLimited(email)) {
+    const loginLimit = await rateLimit(email.toLowerCase(), "auth:login");
+    if (!loginLimit.success) {
+      void auditLog({
+        action: "user.login.failure",
+        resource: "User",
+        metadata: { email, reason: "rate_limited" },
+      });
       return { success: false, error: rateLimitMessage };
     }
 
@@ -43,14 +51,24 @@ export async function loginAction(input: unknown): Promise<AuthActionState> {
     });
 
     if (!user?.passwordHash) {
-      await recordFailedLogin(email);
+      void auditLog({
+        action: "user.login.failure",
+        resource: "User",
+        metadata: { email, reason: "invalid_credentials" },
+      });
       return { success: false, error: invalidCredentialsMessage };
     }
 
     const passwordMatches = await verifyPassword(password, user.passwordHash);
 
     if (!passwordMatches) {
-      await recordFailedLogin(email);
+      void auditLog({
+        userId: user.id,
+        action: "user.login.failure",
+        resource: "User",
+        resourceId: user.id,
+        metadata: { email, reason: "invalid_credentials" },
+      });
       return { success: false, error: invalidCredentialsMessage };
     }
 
@@ -59,20 +77,23 @@ export async function loginAction(input: unknown): Promise<AuthActionState> {
       password,
       redirect: false,
     });
-    await db.auditLog.create({
-      data: {
-        userId: user.id,
-        action: "auth.login",
-        resource: "User",
-        resourceId: user.id,
-      },
+    void auditLog({
+      userId: user.id,
+      action: "user.login.success",
+      resource: "User",
+      resourceId: user.id,
+      metadata: { email },
     });
     await clearFailedLogins(email);
 
     return { success: true, error: null, redirectTo: "/dashboard" };
   } catch (error: unknown) {
     if (error instanceof AuthError) {
-      await recordFailedLogin(email);
+      void auditLog({
+        action: "user.login.failure",
+        resource: "User",
+        metadata: { email, reason: "auth_error" },
+      });
       return { success: false, error: invalidCredentialsMessage };
     }
 
