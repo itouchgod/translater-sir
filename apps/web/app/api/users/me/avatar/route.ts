@@ -4,7 +4,8 @@ import { withApiHandler } from "@/lib/api-handler";
 import { requireAuth, requireOrgMember } from "@/lib/auth-helpers";
 import { invalidateUserMeCache } from "@/lib/cache-invalidation";
 import { db } from "@/lib/db";
-import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
+import { AppError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
+import { logger } from "@/lib/logger";
 import { getR2Key, getR2PublicUrl, headR2Object, uploadToR2 } from "@/lib/r2";
 import { ConfirmAvatarSchema } from "@/lib/validations/user";
 import {
@@ -15,6 +16,19 @@ import {
 } from "@/utils/upload-validation";
 
 export const runtime = "nodejs";
+
+function isUploadedFile(value: FormDataEntryValue | null): value is File {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "arrayBuffer" in value &&
+    "size" in value &&
+    "type" in value &&
+    typeof value.arrayBuffer === "function" &&
+    typeof value.size === "number" &&
+    typeof value.type === "string"
+  );
+}
 
 function getAvatarFileExtension(contentType: string) {
   switch (contentType) {
@@ -31,7 +45,15 @@ function getAvatarFileExtension(contentType: string) {
 
 async function updateAvatarUrl(userId: string, key: string) {
   try {
-    const avatarUrl = getR2PublicUrl(key);
+    let avatarUrl: string;
+
+    try {
+      avatarUrl = getR2PublicUrl(key);
+    } catch (error: unknown) {
+      logger.error({ error, key, userId }, "Failed to build avatar public URL");
+      throw new AppError("STORAGE_CONFIG_ERROR", "头像公开访问地址未配置，请检查 R2_PUBLIC_URL", 502);
+    }
+
     const user = await db.user.update({
       where: {
         id: userId,
@@ -47,7 +69,9 @@ async function updateAvatarUrl(userId: string, key: string) {
       },
     });
 
-    await invalidateUserMeCache(userId);
+    await invalidateUserMeCache(userId).catch((error: unknown) => {
+      logger.warn({ error, userId }, "Failed to invalidate user profile cache after avatar update");
+    });
 
     return user;
   } catch (error: unknown) {
@@ -74,7 +98,7 @@ export const POST = withApiHandler(async function POST(request: Request) {
     const formData = await request.formData();
     const file = formData.get("file");
 
-    if (!(file instanceof File)) {
+    if (!isUploadedFile(file)) {
       throw new ValidationError("请选择头像文件");
     }
 
@@ -97,11 +121,16 @@ export const POST = withApiHandler(async function POST(request: Request) {
     const key = getR2Key("avatar", organizationId, `${session.user.id}.${extension}`);
     const body = Buffer.from(await file.arrayBuffer());
 
-    await uploadToR2({
-      key,
-      body,
-      contentType: file.type,
-    });
+    try {
+      await uploadToR2({
+        key,
+        body,
+        contentType: file.type,
+      });
+    } catch (error: unknown) {
+      logger.error({ error, key, userId: session.user.id }, "Failed to upload avatar to R2");
+      throw new AppError("STORAGE_UPLOAD_ERROR", "头像上传到存储失败，请检查 R2 配置和权限", 502);
+    }
 
     return apiSuccess(await updateAvatarUrl(session.user.id, key));
   }
