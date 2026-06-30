@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { UserRole } from "@prisma/client";
+import { LogoutButton } from "@/components/auth/LogoutButton";
 import { OrgSwitcher } from "@/components/org/OrgSwitcher";
 import { Button } from "@/components/ui/button";
 import { auth } from "@/lib/auth";
@@ -85,6 +86,7 @@ export default async function DashboardLayout({
                 <Link href="/admin">管理</Link>
               </Button>
             ) : null}
+            <LogoutButton />
           </nav>
         </header>
         {children}
