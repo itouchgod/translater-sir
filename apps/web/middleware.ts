@@ -86,6 +86,10 @@ function forbiddenResponse() {
   );
 }
 
+function shouldUseSecureAuthCookie(request: NextRequest) {
+  return request.nextUrl.protocol === "https:" || process.env.NEXTAUTH_URL?.startsWith("https://");
+}
+
 export async function middleware(request: NextRequest) {
   if (request.nextUrl.pathname.startsWith("/api")) {
     return handleApiCors(request);
@@ -94,6 +98,7 @@ export async function middleware(request: NextRequest) {
   const token = await getToken({
     req: request,
     secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
+    secureCookie: shouldUseSecureAuthCookie(request),
   });
 
   if (!token) {
