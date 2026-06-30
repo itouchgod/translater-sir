@@ -149,6 +149,8 @@ export function SubtitleDisplay({
     });
   }, [visibleSubtitles]);
 
+  const isWaitingForSpeech = visibleSubtitles.length === 0;
+
   return (
     <div
       ref={scrollRef}
@@ -164,21 +166,32 @@ export function SubtitleDisplay({
       )}
       aria-live="polite"
     >
-      <div className="space-y-3">
-        {visibleSubtitles.map((subtitle) => (
-          <div
-            key={subtitle.id}
-            className={cn(
-              "rounded-md px-3 py-2 transition-opacity duration-200 ease-out",
-              subtitle.isFinal
-                ? "opacity-100"
-                : "bg-white/5 opacity-60 italic text-slate-300",
-            )}
-          >
-            {renderSubtitleText(subtitle, mode)}
+      {isWaitingForSpeech ? (
+        <div className="flex h-full min-h-[320px] flex-col items-center justify-center text-center">
+          <div className="max-w-md space-y-3">
+            <p className="text-base font-medium text-slate-100">等待语音输入</p>
+            <p className="text-sm leading-6 text-slate-400">
+              麦克风开始采集后，识别到的人声会在这里实时显示。请保持浏览器麦克风权限开启，并对着当前输入设备讲话。
+            </p>
           </div>
-        ))}
-      </div>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {visibleSubtitles.map((subtitle) => (
+            <div
+              key={subtitle.id}
+              className={cn(
+                "rounded-md px-3 py-2 transition-opacity duration-200 ease-out",
+                subtitle.isFinal
+                  ? "opacity-100"
+                  : "bg-white/5 opacity-60 italic text-slate-300",
+              )}
+            >
+              {renderSubtitleText(subtitle, mode)}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
