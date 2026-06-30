@@ -9,7 +9,6 @@ import {
   History,
   KeyRound,
   LogOut,
-  Settings,
   ShieldCheck,
   User,
   Users,
@@ -104,12 +103,19 @@ export function DashboardNav({
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button type="button" variant="ghost" size="icon-sm" aria-label="打开设置菜单">
-            <Settings />
+          <Button type="button" variant="ghost" size="icon-sm" aria-label="打开账号菜单">
+            <Avatar size="sm">
+              <AvatarImage src={user.avatarUrl ?? undefined} alt={user.name ?? user.email} />
+              <AvatarFallback>{initials}</AvatarFallback>
+            </Avatar>
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48">
-          <DropdownMenuLabel>设置</DropdownMenuLabel>
+        <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuLabel className="space-y-1">
+            <span className="block truncate">{user.name ?? "当前账号"}</span>
+            <span className="block truncate text-xs font-normal text-muted-foreground">{user.email}</span>
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
           <DropdownMenuGroup>
             <DropdownMenuItem asChild>
               <Link href="/settings/profile">
@@ -120,19 +126,19 @@ export function DashboardNav({
             <DropdownMenuItem asChild>
               <Link href="/settings/organization">
                 <Building2 />
-                组织
+                组织设置
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link href="/settings/members">
                 <Users />
-                成员
+                成员管理
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link href="/settings/security">
                 <ShieldCheck />
-                安全
+                安全设置
               </Link>
             </DropdownMenuItem>
           </DropdownMenuGroup>
@@ -167,23 +173,6 @@ export function DashboardNav({
               </DropdownMenuGroup>
             </>
           ) : null}
-        </DropdownMenuContent>
-      </DropdownMenu>
-
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button type="button" variant="ghost" size="icon-sm" aria-label="打开账号菜单">
-            <Avatar size="sm">
-              <AvatarImage src={user.avatarUrl ?? undefined} alt={user.name ?? user.email} />
-              <AvatarFallback>{initials}</AvatarFallback>
-            </Avatar>
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-56">
-          <DropdownMenuLabel className="space-y-1">
-            <span className="block truncate">{user.name ?? "当前账号"}</span>
-            <span className="block truncate text-xs font-normal text-muted-foreground">{user.email}</span>
-          </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem
             variant="destructive"

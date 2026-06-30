@@ -40,9 +40,12 @@ export function ProfileForm({ name, email }: ProfileFormProps) {
         return;
       }
 
+      form.reset(values);
       toast.success("个人资料已更新");
     });
   }
+
+  const canSubmit = form.formState.isDirty && !isPending;
 
   return (
     <form className="flex flex-col gap-5" onSubmit={form.handleSubmit(onSubmit)}>
@@ -63,12 +66,13 @@ export function ProfileForm({ name, email }: ProfileFormProps) {
             {...form.register("name")}
           />
           <FieldError>{form.formState.errors.name?.message}</FieldError>
+          <FieldDescription>头像会在选择后自动保存；此按钮只保存姓名修改。</FieldDescription>
         </Field>
       </FieldGroup>
 
-      <Button type="submit" disabled={isPending || !form.formState.isDirty}>
+      <Button type="submit" disabled={!canSubmit}>
         {isPending ? <LoaderCircleIcon data-icon="inline-start" className="animate-spin" /> : null}
-        保存资料
+        {form.formState.isDirty ? "保存姓名" : "姓名未修改"}
       </Button>
     </form>
   );

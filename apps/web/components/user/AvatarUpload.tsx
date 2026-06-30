@@ -1,6 +1,7 @@
 "use client";
 
 import { CameraIcon, LoaderCircleIcon, UploadCloudIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { ChangeEvent, DragEvent, useMemo, useRef, useState } from "react";
 import { useSWRConfig } from "swr";
 import { toast } from "sonner";
@@ -89,6 +90,7 @@ function parseApiPayload(responseText: string) {
 
 export function AvatarUpload({ userId, name, email, avatarUrl }: AvatarUploadProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const router = useRouter();
   const { mutate } = useSWRConfig();
   const [isUploading, setIsUploading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -105,9 +107,10 @@ export function AvatarUpload({ userId, name, email, avatarUrl }: AvatarUploadPro
 
       await uploadAvatar(file, setProgress);
       await mutate("/api/users/me");
+      router.refresh();
 
       toast.success("头像已更新");
-      setProgress(100);
+      setProgress(0);
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : "头像上传失败");
       setPreviewUrl(null);
