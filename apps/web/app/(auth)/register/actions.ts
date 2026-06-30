@@ -117,11 +117,15 @@ export async function registerAction(input: unknown): Promise<RegisterActionStat
       metadata: { organizationId: created.organizationId, name: `${name} 的组织` },
     });
 
-    await sendVerificationEmail({
-      email,
-      token: verificationToken,
-      name,
-    });
+    try {
+      await sendVerificationEmail({
+        email,
+        token: verificationToken,
+        name,
+      });
+    } catch (error: unknown) {
+      logger.warn({ error, email }, "Verification email failed after registration");
+    }
 
     return { success: true, error: null };
   } catch (error: unknown) {

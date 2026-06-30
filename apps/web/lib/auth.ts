@@ -1,7 +1,7 @@
 import NextAuth, { type NextAuthResult, type User as AuthUser } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
-import { UserRole } from "@prisma/client";
+import { MemberRole, UserRole } from "@prisma/client";
 import { AuthPrismaAdapter } from "@/lib/auth-adapter";
 import { db } from "@/lib/db";
 import { isUserTokenInvalidated } from "@/lib/jwt-blacklist";
@@ -14,6 +14,49 @@ type CredentialsUser = AuthUser & {
   role: UserRole;
   organizationId: string | null;
 };
+
+function createOrganizationSlug(seed: string) {
+  const slugBase = seed
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 32);
+  const suffix = Math.random().toString(36).slice(2, 8);
+
+  return `${slugBase || "user"}-${suffix}`;
+}
+
+async function createDefaultOrganizationForUser(user: {
+  id: string;
+  email: string;
+  name: string | null;
+}) {
+  const displayName = user.name?.trim() || user.email.split("@")[0] || "用户";
+  const organization = await db.organization.create({
+    data: {
+      name: `${displayName} 的组织`,
+      slug: createOrganizationSlug(user.email),
+      members: {
+        create: {
+          userId: user.id,
+          role: MemberRole.OWNER,
+        },
+      },
+      dictionaries: {
+        create: {
+          name: "默认术语库",
+          description: "首次登录时自动创建的默认术语库",
+          isDefault: true,
+        },
+      },
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  return organization.id;
+}
 
 function isCredentialsUser(user: AuthUser): user is CredentialsUser {
   return Boolean(
@@ -31,6 +74,8 @@ async function getUserSessionClaims(userId: string, preferredOrganizationId?: st
     },
     select: {
       id: true,
+      email: true,
+      name: true,
       role: true,
       memberships: {
         orderBy: { joinedAt: "asc" },
@@ -45,15 +90,17 @@ async function getUserSessionClaims(userId: string, preferredOrganizationId?: st
     return null;
   }
 
+  const organizationId =
+    user.memberships.find(
+      (membership) => membership.organizationId === preferredOrganizationId,
+    )?.organizationId ??
+    user.memberships[0]?.organizationId ??
+    (await createDefaultOrganizationForUser(user));
+
   return {
     userId: user.id,
     role: user.role,
-    organizationId:
-      user.memberships.find(
-        (membership) => membership.organizationId === preferredOrganizationId,
-      )?.organizationId ??
-      user.memberships[0]?.organizationId ??
-      null,
+    organizationId,
   };
 }
 
@@ -74,6 +121,8 @@ function getRequestedOrganizationId(session: unknown) {
 
 const nextAuthResult: NextAuthResult = NextAuth({
   adapter: AuthPrismaAdapter(db),
+  secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
+  trustHost: true,
   session: {
     strategy: "jwt",
     maxAge: SESSION_MAX_AGE_SECONDS,
