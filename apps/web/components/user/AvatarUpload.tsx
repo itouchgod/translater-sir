@@ -9,7 +9,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { MAX_AVATAR_SIZE_BYTES } from "@/lib/validations/user";
-import { readMagicBytes } from "@/utils/upload-validation";
 
 const allowedAvatarTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 
@@ -18,13 +17,6 @@ type AvatarUploadProps = {
   name: string | null;
   email: string;
   avatarUrl: string | null;
-};
-
-type PresignedUploadResponse = {
-  uploadUrl: string;
-  key: string;
-  publicUrl: string;
-  expiresIn: number;
 };
 
 function getInitials(name: string | null, email: string) {
@@ -42,33 +34,8 @@ function assertAvatarFile(file: File) {
   }
 }
 
-async function requestPresignedUpload(file: File) {
-  const response = await fetch("/api/upload/presigned", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      fileName: file.name,
-      contentType: file.type,
-      sizeBytes: file.size,
-      magicBytes: await readMagicBytes(file),
-    }),
-  });
-  const payload = (await response.json()) as {
-    data: PresignedUploadResponse | null;
-    error: { message: string } | null;
-  };
-
-  if (!response.ok || payload.error || !payload.data) {
-    throw new Error(payload.error?.message ?? "创建上传链接失败");
-  }
-
-  return payload.data;
-}
-
-async function uploadFileToR2(file: File, uploadUrl: string, onProgress: (value: number) => void) {
-  await new Promise<void>((resolve, reject) => {
+async function uploadAvatar(file: File, onProgress: (value: number) => void) {
+  return new Promise<{ avatarUrl: string }>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
 
     xhr.upload.addEventListener("progress", (event) => {
@@ -80,46 +47,45 @@ async function uploadFileToR2(file: File, uploadUrl: string, onProgress: (value:
     });
 
     xhr.addEventListener("load", () => {
+      const payload = parseApiPayload(xhr.responseText);
+
       if (xhr.status >= 200 && xhr.status < 300) {
-        resolve();
+        if (payload.data?.avatarUrl) {
+          resolve(payload.data);
+          return;
+        }
+
+        reject(new Error("头像保存失败"));
         return;
       }
 
-      reject(new Error("头像上传失败"));
+      reject(new Error(payload.error?.message ?? "头像上传失败"));
     });
 
     xhr.addEventListener("error", () => {
-      reject(new Error("头像上传失败"));
+      reject(new Error("头像上传失败，请检查网络后重试"));
     });
 
-    xhr.open("PUT", uploadUrl);
-    xhr.setRequestHeader("Content-Type", file.type);
-    xhr.send(file);
+    const formData = new FormData();
+    formData.append("file", file);
+
+    xhr.open("POST", "/api/users/me/avatar");
+    xhr.send(formData);
   });
 }
 
-async function confirmAvatarUpload(params: {
-  key: string;
-  contentType: string;
-  sizeBytes: number;
-}) {
-  const response = await fetch("/api/users/me/avatar", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(params),
-  });
-  const payload = (await response.json()) as {
-    data: { avatarUrl: string } | null;
-    error: { message: string } | null;
-  };
-
-  if (!response.ok || payload.error || !payload.data) {
-    throw new Error(payload.error?.message ?? "保存头像失败");
+function parseApiPayload(responseText: string) {
+  try {
+    return JSON.parse(responseText) as {
+      data: { avatarUrl: string } | null;
+      error: { message: string } | null;
+    };
+  } catch {
+    return {
+      data: null,
+      error: null,
+    };
   }
-
-  return payload.data;
 }
 
 export function AvatarUpload({ userId, name, email, avatarUrl }: AvatarUploadProps) {
@@ -138,13 +104,7 @@ export function AvatarUpload({ userId, name, email, avatarUrl }: AvatarUploadPro
       setProgress(0);
       setIsUploading(true);
 
-      const presigned = await requestPresignedUpload(file);
-      await uploadFileToR2(file, presigned.uploadUrl, setProgress);
-      await confirmAvatarUpload({
-        key: presigned.key,
-        contentType: file.type,
-        sizeBytes: file.size,
-      });
+      await uploadAvatar(file, setProgress);
       await mutate("/api/users/me");
 
       toast.success("头像已更新");
