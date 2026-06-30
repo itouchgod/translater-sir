@@ -1,6 +1,6 @@
 {
   "framework": "nextjs",
-  "buildCommand": "pnpm prisma migrate deploy --schema prisma/schema.prisma && pnpm turbo build",
+  "buildCommand": "pnpm prisma migrate deploy --schema ../../prisma/schema.prisma && pnpm turbo build",
   "installCommand": "pnpm install",
   "outputDirectory": ".next",
   "regions": ["sin1"],
