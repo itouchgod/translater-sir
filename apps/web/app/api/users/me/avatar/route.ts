@@ -17,6 +17,8 @@ import {
 
 export const runtime = "nodejs";
 
+const MAX_DATABASE_AVATAR_BYTES = 1024 * 1024;
+
 function isUploadedFile(value: FormDataEntryValue | null): value is File {
   return (
     typeof value === "object" &&
@@ -83,6 +85,42 @@ async function updateAvatarUrl(userId: string, key: string) {
   }
 }
 
+async function updateAvatarDataUrl(userId: string, file: File, body: Buffer) {
+  if (body.byteLength > MAX_DATABASE_AVATAR_BYTES) {
+    throw new AppError("STORAGE_UPLOAD_ERROR", "头像上传到存储失败，请检查 R2 配置和权限", 502);
+  }
+
+  try {
+    const avatarUrl = `data:${file.type};base64,${body.toString("base64")}`;
+    const user = await db.user.update({
+      where: {
+        id: userId,
+        deletedAt: null,
+      },
+      data: {
+        avatarUrl,
+      },
+      select: {
+        id: true,
+        avatarUrl: true,
+        updatedAt: true,
+      },
+    });
+
+    await invalidateUserMeCache(userId).catch((error: unknown) => {
+      logger.warn({ error, userId }, "Failed to invalidate user profile cache after avatar fallback update");
+    });
+
+    return user;
+  } catch (error: unknown) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+      throw new NotFoundError("用户不存在");
+    }
+
+    throw error;
+  }
+}
+
 export const POST = withApiHandler(async function POST(request: Request) {
   const session = await requireAuth();
   const contentType = request.headers.get("content-type") ?? "";
@@ -129,7 +167,7 @@ export const POST = withApiHandler(async function POST(request: Request) {
       });
     } catch (error: unknown) {
       logger.error({ error, key, userId: session.user.id }, "Failed to upload avatar to R2");
-      throw new AppError("STORAGE_UPLOAD_ERROR", "头像上传到存储失败，请检查 R2 配置和权限", 502);
+      return apiSuccess(await updateAvatarDataUrl(session.user.id, file, body));
     }
 
     return apiSuccess(await updateAvatarUrl(session.user.id, key));

@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { CameraIcon, LoaderCircleIcon, UploadCloudIcon } from "lucide-react";
 import { ChangeEvent, DragEvent, useMemo, useRef, useState } from "react";
 import { useSWRConfig } from "swr";
@@ -147,14 +146,7 @@ export function AvatarUpload({ userId, name, email, avatarUrl }: AvatarUploadPro
           {previewUrl ? (
             <AvatarImage src={previewUrl} alt={`${name ?? email} 的头像预览`} />
           ) : avatarUrl ? (
-            <Image
-              src={avatarUrl}
-              alt={`${name ?? email} 的头像`}
-              fill
-              sizes="80px"
-              className="rounded-full object-cover"
-              unoptimized
-            />
+            <AvatarImage src={avatarUrl} alt={`${name ?? email} 的头像`} />
           ) : (
             <AvatarImage src={avatarUrl ?? undefined} alt={`${name ?? email} 的头像`} />
           )}
