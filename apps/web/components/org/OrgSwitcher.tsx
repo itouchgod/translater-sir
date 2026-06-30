@@ -1,9 +1,10 @@
 "use client";
 
-import { Building2Icon, LoaderCircleIcon } from "lucide-react";
+import { LoaderCircleIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { toast } from "sonner";
+import { BrandMark } from "@/components/brand/BrandMark";
 import {
   Select,
   SelectContent,
@@ -49,11 +50,7 @@ export function OrgSwitcher({ organizations, activeOrganizationId }: OrgSwitcher
 
   return (
     <div className="flex min-w-0 items-center gap-2">
-      {isPending ? (
-        <LoaderCircleIcon data-icon="inline-start" className="animate-spin" />
-      ) : (
-        <Building2Icon data-icon="inline-start" />
-      )}
+      {isPending ? <LoaderCircleIcon data-icon="inline-start" className="animate-spin" /> : <BrandMark size={24} />}
       <Select
         value={activeOrganizationId ?? undefined}
         onValueChange={onValueChange}
