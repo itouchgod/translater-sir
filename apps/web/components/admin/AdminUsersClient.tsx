@@ -33,6 +33,10 @@ type ApiResponse<T> = {
   error: { message: string } | null;
 };
 
+type DeleteResponse = {
+  deleted: boolean;
+};
+
 async function fetchPage(url: string) {
   const response = await fetch(url);
   const payload = (await response.json()) as ApiResponse<PageData>;
@@ -87,11 +91,35 @@ export function AdminUsersClient() {
     }
   }
 
+  async function deleteUser(user: AdminUser) {
+    const label = `${user.email}${user.name ? `（${user.name}）` : ""}`;
+
+    if (!window.confirm(`确定永久删除用户 ${label} 吗？此操作不可恢复。`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/admin/users/${encodeURIComponent(user.id)}`, {
+        method: "DELETE",
+      });
+      const payload = (await response.json()) as ApiResponse<DeleteResponse>;
+
+      if (!response.ok || payload.error || !payload.data?.deleted) {
+        throw new Error(payload.error?.message ?? "删除用户失败");
+      }
+
+      toast.success("用户已删除");
+      await users.mutate();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "删除用户失败");
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-normal">用户管理</h1>
-        <p className="text-sm text-muted-foreground">搜索用户并执行封禁或解封操作。</p>
+        <p className="text-sm text-muted-foreground">搜索用户并执行封禁、解封或永久删除操作。</p>
       </div>
 
       <form
@@ -135,14 +163,19 @@ export function AdminUsersClient() {
               </TableCell>
               <TableCell>{new Date(user.createdAt).toLocaleString("zh-CN", { hour12: false })}</TableCell>
               <TableCell className="text-right">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={user.deletedAt ? "outline" : "destructive"}
-                  onClick={() => void patchUser(user, user.deletedAt ? "unban" : "ban")}
-                >
-                  {user.deletedAt ? "解封" : "封禁"}
-                </Button>
+                <div className="flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={user.deletedAt ? "outline" : "destructive"}
+                    onClick={() => void patchUser(user, user.deletedAt ? "unban" : "ban")}
+                  >
+                    {user.deletedAt ? "解封" : "封禁"}
+                  </Button>
+                  <Button type="button" size="sm" variant="outline" onClick={() => void deleteUser(user)}>
+                    删除
+                  </Button>
+                </div>
               </TableCell>
             </TableRow>
           ))}

@@ -83,3 +83,67 @@ export const PATCH = withApiHandler(async function PATCH(request: Request, conte
 
   return apiSuccess(user);
 });
+
+export const DELETE = withApiHandler(async function DELETE(request: Request, context: RouteContext) {
+  const { session } = await requireAdminAccess();
+  const { id } = await context.params;
+
+  if (id === session.user.id) {
+    throw new ForbiddenError("不能删除自己");
+  }
+
+  const target = await db.user.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      email: true,
+      role: true,
+      deletedAt: true,
+    },
+  });
+
+  if (!target) {
+    throw new NotFoundError("用户不存在");
+  }
+
+  if (target.role === "SUPER_ADMIN") {
+    const activeSuperAdminCount = await db.user.count({
+      where: {
+        role: "SUPER_ADMIN",
+        deletedAt: null,
+      },
+    });
+
+    if (!target.deletedAt && activeSuperAdminCount <= 1) {
+      throw new ForbiddenError("不能删除最后一个超级管理员");
+    }
+  }
+
+  const auditContext = getRequestAuditContext(request);
+
+  await db.$transaction(async (tx) => {
+    await tx.auditLog.create({
+      data: {
+        userId: session.user.id,
+        action: "admin.user.delete",
+        resource: "User",
+        resourceId: target.id,
+        metadata: {
+          targetEmail: target.email,
+          targetRole: target.role,
+          targetDeletedAt: target.deletedAt?.toISOString() ?? null,
+        },
+        ip: auditContext.ip,
+        userAgent: auditContext.userAgent,
+      },
+    });
+
+    await tx.user.delete({
+      where: { id },
+    });
+  });
+
+  await invalidateUserTokens(target.id);
+
+  return apiSuccess({ deleted: true });
+});
