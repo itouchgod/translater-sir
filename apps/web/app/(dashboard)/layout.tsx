@@ -1,9 +1,7 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { UserRole } from "@prisma/client";
-import { LogoutButton } from "@/components/auth/LogoutButton";
+import { DashboardNav } from "@/components/layout/DashboardNav";
 import { OrgSwitcher } from "@/components/org/OrgSwitcher";
-import { Button } from "@/components/ui/button";
 import { auth } from "@/lib/auth";
 import { requireCurrentUser } from "@/lib/current-user";
 import { can } from "@/utils/permissions";
@@ -27,6 +25,7 @@ export default async function DashboardLayout({
   const canViewBilling = activeMembership ? can(activeMembership.role, "billing:view") : false;
   const canManageApiKeys = activeMembership ? can(activeMembership.role, "apikey:manage") : false;
   const canManageWebhooks = activeMembership ? can(activeMembership.role, "webhook:manage") : false;
+  const canAccessAdmin = user.role === UserRole.ADMIN || user.role === UserRole.SUPER_ADMIN;
   const organizations = user.memberships.map((membership) => ({
     id: membership.organization.id,
     name: membership.organization.name,
@@ -41,53 +40,17 @@ export default async function DashboardLayout({
             organizations={organizations}
             activeOrganizationId={activeOrganizationId}
           />
-          <nav className="flex flex-wrap gap-2">
-            <Button asChild variant="ghost" size="sm">
-              <Link href="/dashboard">Dashboard</Link>
-            </Button>
-            <Button asChild variant="ghost" size="sm">
-              <Link href="/meetings">会议</Link>
-            </Button>
-            <Button asChild variant="ghost" size="sm">
-              <Link href="/history">历史</Link>
-            </Button>
-            <Button asChild variant="ghost" size="sm">
-              <Link href="/dictionary">词典</Link>
-            </Button>
-            {canViewBilling ? (
-              <Button asChild variant="ghost" size="sm">
-                <Link href="/billing">计费</Link>
-              </Button>
-            ) : null}
-            <Button asChild variant="ghost" size="sm">
-              <Link href="/settings/profile">个人资料</Link>
-            </Button>
-            <Button asChild variant="ghost" size="sm">
-              <Link href="/settings/organization">组织</Link>
-            </Button>
-            <Button asChild variant="ghost" size="sm">
-              <Link href="/settings/members">成员</Link>
-            </Button>
-            <Button asChild variant="ghost" size="sm">
-              <Link href="/settings/security">安全</Link>
-            </Button>
-            {canManageApiKeys ? (
-              <Button asChild variant="ghost" size="sm">
-                <Link href="/settings/api-keys">API Key</Link>
-              </Button>
-            ) : null}
-            {canManageWebhooks ? (
-              <Button asChild variant="ghost" size="sm">
-                <Link href="/settings/webhooks">Webhooks</Link>
-              </Button>
-            ) : null}
-            {user.role === UserRole.ADMIN || user.role === UserRole.SUPER_ADMIN ? (
-              <Button asChild variant="ghost" size="sm">
-                <Link href="/admin">管理</Link>
-              </Button>
-            ) : null}
-            <LogoutButton />
-          </nav>
+          <DashboardNav
+            canViewBilling={canViewBilling}
+            canManageApiKeys={canManageApiKeys}
+            canManageWebhooks={canManageWebhooks}
+            canAccessAdmin={canAccessAdmin}
+            user={{
+              name: user.name,
+              email: user.email,
+              avatarUrl: user.avatarUrl,
+            }}
+          />
         </header>
         {children}
       </div>
