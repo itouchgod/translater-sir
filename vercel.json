@@ -4,5 +4,18 @@
   "installCommand": "pnpm install",
   "outputDirectory": ".next",
   "regions": ["sin1"],
+  "redirects": [
+    {
+      "source": "/(.*)",
+      "has": [
+        {
+          "type": "host",
+          "value": "translatersir.com"
+        }
+      ],
+      "destination": "https://www.translatersir.com/$1",
+      "permanent": true
+    }
+  ],
   "crons": []
 }
