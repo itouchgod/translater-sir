@@ -43,6 +43,12 @@
       "dependsOn": ["^build"],
       "outputs": [".next/**", "!.next/cache/**", "dist/**"]
     },
+    "@repo/types#build": {
+      "outputs": []
+    },
+    "@repo/utils#build": {
+      "outputs": []
+    },
     "dev": {
       "cache": false,
       "persistent": true
