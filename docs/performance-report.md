@@ -2,6 +2,8 @@
 
 Date: 2026-06-30
 
+This is a historical T27 performance snapshot. Current production status is tracked in `docs/project-status.md`.
+
 ## Scope
 
 T27 covers query indexes, N+1 checks, short Redis caches, chart bundle splitting, image remote pattern hardening, and an API latency script.

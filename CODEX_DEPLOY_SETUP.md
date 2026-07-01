@@ -6,13 +6,15 @@
 
 ---
 
-## 最新执行状态（2026-06-30）
+## 最新执行状态（2026-07-01）
 
 ### 当前结论
 
 - 生产站点域名：`https://www.translatersir.com`
 - 根域名 `https://translatersir.com` 已接入，但应用配置以 `www` 为规范域名。
 - Vercel 已能完成构建与部署，站点可访问。
+- 当前产品定位：公司内部同声传译工具，先服务内部会议实时传译、术语库、会议留存和管理后台；计费、公开 API、Webhook 保留为后续扩展能力。
+- 生产健康检查当前为 `healthy`，DB / Redis / R2 均为 `ok`。
 - 邮箱密码登录已恢复，管理员账号可登录后台。
 - Google OAuth 已创建客户端，需保持 `www` 与非 `www` 两套回调地址同时存在。
 - 头像上传已改为服务端代理上传：优先写入 Cloudflare R2；R2 异常时，小图会临时回退存入数据库，避免用户资料页直接失败。
@@ -35,8 +37,8 @@ Cloudflare R2
   R2_ACCOUNT_ID  = 96b38e3d16f403104f1535e4710e0410
   R2_BUCKET_NAME = translater-sir
   R2_PUBLIC_URL  = https://pub-4ad191e6ae9341e3b9b302af4b0023bb.r2.dev
-  R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY 已填入 Vercel
-  本地 .env.local 如需测试 R2，仍需重新创建 R2 Token 后补齐这两个值
+  R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY 已重建并填入 Vercel
+  2026-07-01 验证：/api/health/r2 返回 ok
 
 Deepgram
   DEEPGRAM_API_KEY 已填入 Vercel
@@ -79,7 +81,7 @@ Auth
 
 ### 后续注意事项
 
-- Cloudflare R2 的 Secret Access Key 只显示一次，Vercel 已填即可；如果本地 `.env.local` 还没填，需新建 R2 Token 重新获取。
+- Cloudflare R2 的 Secret Access Key 只显示一次；如果本地 `.env.local` 未保存，需新建 R2 Token 重新获取。
 - 修改 Vercel 环境变量后，需要在 Vercel 重新部署，并取消使用旧 Build Cache。
 - 如需快速检查生产依赖，可登录管理员后访问：
   `https://www.translatersir.com/api/admin/health`
@@ -234,6 +236,19 @@ git push origin main
    - **Secret Access Key** → 记录为 `R2_SECRET_ACCESS_KEY`（仅显示一次，立即保存）
 
 > ✅ 完成标志：获得全部 5 个 R2 变量。
+
+### 4-E：Token 被删除或轮换后的恢复步骤
+
+1. 按 4-D 重新创建 `translater-sir` API Token。
+2. 权限必须选择 **Object Read & Write**，bucket 范围必须选择 `translater-sir`。
+3. 将新的 `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` 更新到 Vercel Production / Preview。
+4. 如需本地验证，将同样两个值写入 `.env.local`。
+5. 在 Vercel 重新部署。
+6. 验证：
+   ```bash
+   curl https://www.translatersir.com/api/health/r2
+   ```
+   期望返回 `{"status":"ok",...}`。
 
 ---
 
@@ -510,10 +525,11 @@ SKIP_ENV_VALIDATION                 0
 
 ```
 [ ] Vercel 部署状态为 Ready（绿色）
-[ ] 访问 https://www.translatersir.com/api/health 返回 200
+[x] 访问 https://www.translatersir.com/api/health 返回 200，且 overall 为 healthy
 [ ] 访问 https://www.translatersir.com/login 页面正常显示
 [ ] 注册新账号，收到验证邮件
 [ ] Google 登录正常跳转
+[x] R2 健康检查成功，https://www.translatersir.com/api/health/r2 返回 ok
 [ ] 上传文件（头像测试）成功存储到 R2
 ```
 
@@ -547,4 +563,4 @@ GOOGLE_CLIENT_SECRET        = 已填入 Vercel，勿写入文档
 
 ---
 
-*生成日期：2026-06-30 · 项目：translater-sir*
+*更新日期：2026-07-01 · 项目：translater-sir*

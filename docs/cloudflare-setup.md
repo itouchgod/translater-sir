@@ -1,5 +1,11 @@
 # Cloudflare Setup
 
+Updated: 2026-07-01
+
+Production domain: `https://www.translatersir.com`
+
+The app is currently positioned as an internal company simultaneous interpretation tool. Cloudflare is used for DNS/CDN behavior and R2 object storage; Vercel remains the application runtime.
+
 ## DNS
 
 1. Add the production domain to Vercel.
@@ -9,6 +15,39 @@
    - Proxy status: Proxied
 3. Keep `NEXT_PUBLIC_APP_URL` and `NEXTAUTH_URL` aligned with the final HTTPS URL.
 4. Use Cloudflare SSL/TLS mode `Full (strict)` after Vercel has issued the certificate.
+
+Current canonical app URL:
+
+```env
+NEXTAUTH_URL=https://www.translatersir.com
+NEXT_PUBLIC_APP_URL=https://www.translatersir.com
+```
+
+## R2
+
+Current bucket and public URL:
+
+```env
+R2_ACCOUNT_ID=96b38e3d16f403104f1535e4710e0410
+R2_BUCKET_NAME=translater-sir
+R2_PUBLIC_URL=https://pub-4ad191e6ae9341e3b9b302af4b0023bb.r2.dev
+```
+
+R2 API token requirements:
+
+- Token name: `translater-sir`
+- Permission: `Object Read & Write`
+- Bucket scope: `translater-sir`
+- Store `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` in Vercel Production / Preview.
+- Store the same values in `.env.local` only when local R2 testing is needed.
+
+If the token is deleted, recreate it with the same permission and bucket scope, update Vercel env vars, redeploy, then verify:
+
+```bash
+curl https://www.translatersir.com/api/health/r2
+```
+
+Expected result: `status` is `ok`.
 
 ## Cache Rules
 
@@ -51,3 +90,8 @@ Use `/api/health` for uptime checks. It returns:
 - `components.r2.latencyMs`
 
 Set the monitor timeout high enough for R2 health upload/delete operations, typically 5-10 seconds.
+
+Latest verified state on 2026-07-01:
+
+- `/api/health`: `overall` is `healthy`
+- `/api/health/r2`: `status` is `ok`

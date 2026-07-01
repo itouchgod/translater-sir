@@ -25,10 +25,14 @@ Claude 按验收清单逐项检查
 ## 全局上下文（每次给 Codex 时附在指令开头）
 
 ```
-项目：AI 同声传译平台 Speech Interpreter
-仓库：speech-interpreter/
+项目：Translater Sir 公司内部同声传译工具
+仓库：translater-sir/
 技术栈：Next.js 15 App Router · TypeScript · Tailwind · shadcn/ui · Prisma · PostgreSQL · Redis · Cloudflare R2 · NextAuth v5
 包管理器：pnpm
+产品定位：
+  - 当前作为公司内部会议同声传译工具
+  - 优先保障会议实时传译、字幕、录音留存、术语库、组织权限和后台健康检查
+  - 计费、公开 API、Webhook 作为后续扩展或内部治理能力保留
 代码规范：
   - 全量 TypeScript，禁用 any
   - ESLint + Prettier，提交前必须通过
@@ -39,6 +43,7 @@ Claude 按验收清单逐项检查
   - 禁止 SQL 拼接，全部走 Prisma
   - 异常必须捕获，不得 unhandled rejection
 完整 PRD 见仓库根目录 CODEX_TASKS.md
+当前状态总结见 docs/project-status.md
 ```
 
 ---
